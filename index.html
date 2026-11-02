@@ -1,0 +1,1188 @@
+<!doctype html><html><head><meta charset=utf8><meta name=viewport content="width=device-width,initial-scale=1,viewport-fit=cover"><style>:root{color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}html{scroll-padding-top:env(safe-area-inset-top,0px)}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#fff;color:#000}img{max-width:100%}[hidden]:not([hidden=until-found i]){display:none!important}</style></head><body>
+<title>Linealuce 27 Circuit Calculator</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;500;600;700&display=swap">
+<style>
+/* Layout: stage with floating toolbar (left) and fixed 360px sidebar (right), header across — Photometry Viewer family */
+:root{
+  --bg:#2C2D30; --panel:#353639; --line:#4A4B4F; --text:#ECEAE6; --muted:#A6A39D;
+  --amber:#F2B33D; --cool:#8FB8DE; --void:#222325; --err:#F08A7A;
+  --ok:#8FBF8F; --warn:#D9A86C;
+  --gridm:#29292c; --gridM:#2f3033; --bar:#5B5D62; --wire:#BDBAB4;
+  --lens:#F3E7C4; --warm:#FFC477; --lcool:#CFE3FF; --lr:#FF6B6B; --lg:#5FD486; --lb:#6E97FF; --lw:#F4F1E8;
+  --font:"Archivo","Helvetica Neue",Arial,sans-serif;
+  color-scheme:dark;
+}
+html,body{height:100%}
+body{background:var(--bg);color:var(--text);font:14px/1.45 var(--font);font-variant-numeric:tabular-nums}
+*{box-sizing:border-box}
+[hidden]{display:none!important}
+button,input,select,textarea{font:inherit;color:inherit}
+.app{display:grid;grid-template-columns:minmax(0,1fr) 360px;grid-template-rows:auto minmax(0,1fr);height:100%}
+
+header{grid-column:1/-1;display:flex;align-items:center;gap:16px;padding-block:10px;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));border-bottom:1px solid var(--line);min-width:0}
+header h1{font-size:17px;font-weight:600;margin:0;white-space:nowrap}
+header .desc{color:var(--muted);font-size:13px;flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+header .acts{display:flex;gap:8px;margin-left:auto;flex-wrap:wrap;justify-content:flex-end}
+
+.btn{background:var(--panel);border:1px solid var(--line);border-radius:6px;padding:6px 11px;font-size:13px;font-weight:500;cursor:pointer;display:inline-flex;align-items:center;gap:7px;user-select:none;-webkit-user-select:none}
+.btn:hover{border-color:var(--muted)}
+.btn.primary{background:var(--amber);border-color:var(--amber);color:#222325}
+.btn.small{padding:4px 9px;font-size:12.5px}
+.btn.ghost{background:transparent}
+:focus-visible{outline:2px solid var(--amber);outline-offset:2px}
+@media (pointer:coarse){.btn,.segc button{min-height:32px}}
+
+/* stage */
+.stage{position:relative;background:var(--void);min-height:0;overflow:hidden}
+#cv{display:block;width:100%;height:100%;touch-action:none;cursor:grab}
+#cv.panning{cursor:grabbing}
+.toolbar{position:absolute;top:12px;left:12px;right:12px;display:flex;flex-wrap:wrap;gap:8px;align-items:center;pointer-events:none;max-width:calc(100% - 250px)}
+.toolbar>*{pointer-events:auto}
+.tgroup{display:flex;gap:4px;align-items:center;background:rgba(53,54,57,.86);border:1px solid var(--line);border-radius:7px;padding:3px;touch-action:none}
+.tgroup .btn{background:transparent;border-color:transparent;padding:4px 9px}
+.tgroup .btn:hover{border-color:var(--line)}
+.segc{display:flex;gap:2px}
+.segc button{background:transparent;border:0;border-radius:5px;padding:4px 9px;font-size:13px;font-weight:500;color:var(--muted);cursor:pointer}
+.segc button[aria-pressed="true"]{background:var(--amber);color:#222325}
+.mini{display:inline-block;height:6px;background:var(--bar);border-top:2px solid var(--lens);border-radius:1px}
+.mini.tw{border-image:linear-gradient(90deg,var(--warm),var(--lcool)) 1}
+.mini.rgbw{border-image:linear-gradient(90deg,var(--lr),var(--lg),var(--lb),var(--lw)) 1}
+.legend{position:absolute;top:12px;right:12px;background:rgba(53,54,57,.86);border:1px solid var(--line);border-radius:7px;padding:7px 10px;font-size:12px;color:var(--muted);display:grid;gap:3px;pointer-events:none}
+.legend i{display:inline-block;width:14px;height:3px;margin-right:7px;vertical-align:middle}
+.readout{position:absolute;left:12px;bottom:12px;max-width:calc(100% - 330px);background:rgba(53,54,57,.86);border:1px solid var(--line);border-radius:7px;padding:5px 10px;font-size:13px;pointer-events:none;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.hint{position:absolute;right:12px;bottom:12px;font-size:12px;color:var(--muted);pointer-events:none}
+#pend{position:absolute;left:50%;top:56px;transform:translateX(-50%);background:var(--amber);color:#222325;font-size:13px;font-weight:500;padding:5px 12px;border-radius:7px;max-width:calc(100% - 24px)}
+
+/* sidebar */
+.side{background:var(--panel);border-left:1px solid var(--line);overflow:auto;min-height:0}
+.side section{padding:16px 20px;border-bottom:1px solid var(--line)}
+.side section:last-child{border-bottom:0}
+h2{font-size:13px;font-weight:600;color:var(--muted);margin:0 0 10px}
+.subj{display:flex;justify-content:space-between;align-items:flex-start;gap:10px;margin-bottom:10px}
+.subj .k{font-size:12px;color:var(--muted)}
+.subj .n{font-size:18px;font-weight:600;line-height:1.25;margin-top:1px}
+.metrics{display:grid;grid-template-columns:1fr 1fr;gap:10px 16px}
+.metric .l{font-size:12px;color:var(--muted)}
+.metric .v{font-size:18px;font-weight:500}
+.metric .v small{font-size:12px;color:var(--muted);font-weight:400;margin-left:4px}
+.v.err,dd.err,td.err{color:var(--err)}.v.warn,dd.warn,td.warn{color:var(--warn)}dd.ok{color:var(--ok)}
+.ctl{display:grid;gap:4px;margin-top:10px}
+.ctl .lv{display:flex;justify-content:space-between;gap:8px;font-size:13px}
+.ctl .lv label,.ctl .lv span:first-child{color:var(--muted)}
+select,input,textarea{background:var(--void);border:1px solid var(--line);border-radius:6px;padding:6px 8px;font-size:13px;width:100%;min-width:0}
+input:disabled{color:var(--muted)}
+textarea{font-size:11.5px;line-height:1.4;height:150px;resize:vertical;font-family:ui-monospace,Menlo,Consolas,monospace}
+.kv{display:grid;grid-template-columns:auto 1fr;gap:4px 12px;margin:10px 0 0;font-size:13px}
+.kv dt{color:var(--muted)}
+.kv dd{margin:0;text-align:right}
+.seg{display:grid;grid-template-columns:minmax(0,1.5fr) minmax(0,.75fr) minmax(0,.95fr) auto;gap:6px;align-items:center;margin-top:6px}
+.seg.ig{grid-template-columns:minmax(0,1fr) auto}
+.seg .x{border:0;background:none;color:var(--muted);font-size:18px;cursor:pointer;padding:0 4px;line-height:1}
+.chain{font-size:12px;color:var(--muted);margin-top:8px;line-height:1.6}
+.chain b{color:var(--text);font-weight:500}
+table{border-collapse:collapse;width:100%;font-size:13px}
+th{font-size:12px;font-weight:500;color:var(--muted);text-align:right;padding:4px 6px;border-bottom:1px solid var(--line)}
+th:first-child,td:first-child{text-align:left}
+td{padding:4px 6px;text-align:right;border-bottom:1px solid rgba(74,75,79,.5)}
+tr.cur td{background:rgba(242,179,61,.12)}
+.tw{overflow-x:auto}
+.note{font-size:12px;color:var(--muted);margin:8px 0 0}
+.rec{margin:10px 0 0;padding:9px 11px;border-radius:7px;border:1px solid var(--line);background:var(--void);font-size:13px}
+.rec.bad{border-color:var(--err)}
+.rec b{font-weight:600}
+.row{display:flex;gap:6px;flex-wrap:wrap;margin-top:10px}
+.issues{list-style:none;margin:0;padding:0;display:grid;gap:2px}
+.issues button{all:unset;box-sizing:border-box;display:flex;gap:9px;width:100%;padding:5px 6px;border-radius:6px;cursor:pointer;font-size:13px;line-height:1.4}
+.issues button:hover{background:var(--bg)}
+.issues button:focus-visible{outline:2px solid var(--amber);outline-offset:0}
+.issues .ok button{cursor:default}
+.dot{flex:none;width:8px;height:8px;border-radius:50%;margin-top:6px}
+.err .dot{background:var(--err)}.warn .dot{background:var(--warn)}.ok .dot{background:var(--ok)}
+details summary{cursor:pointer;font-size:13px;font-weight:600;color:var(--muted)}
+details ul{padding-left:18px;margin:8px 0 0;font-size:12px;color:var(--muted)}
+details li{margin:4px 0}
+
+/* dialogs, overlay, toast */
+dialog{background:var(--panel);color:var(--text);border:1px solid var(--line);border-radius:12px;padding:20px 22px;max-width:min(560px,calc(100% - 32px));box-shadow:0 18px 48px rgba(0,0,0,.45)}
+dialog::backdrop{background:rgba(0,0,0,.5)}
+dialog h3{font-size:17px;font-weight:600;margin:0 0 10px}
+dialog p{margin:0 0 10px;font-size:14px}
+dialog .sig{border-top:1px solid var(--line);padding-top:10px;margin-top:14px;font-size:13px;color:var(--muted)}
+dialog .sig b{color:var(--text);font-weight:600;display:block}
+dialog img{max-width:100%;border:1px solid var(--line);border-radius:6px;display:block;margin:6px 0 10px}
+dialog .row{justify-content:flex-end}
+a{color:var(--amber)}
+#drop{position:fixed;inset:10px;border:2px dashed var(--amber);border-radius:12px;background:rgba(34,35,37,.78);display:grid;place-items:center;font-size:17px;font-weight:600;z-index:40;pointer-events:none}
+#toast{position:fixed;left:50%;bottom:calc(20px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);background:var(--panel);border:1px solid var(--line);border-radius:7px;padding:8px 14px;font-size:13px;z-index:50;max-width:calc(100% - 32px)}
+
+/* schematic */
+.g-minor{stroke:var(--gridm);stroke-width:1;fill:none}
+.g-major{stroke:var(--gridM);stroke-width:1;fill:none}
+.wire{fill:none;stroke:var(--wire);stroke-width:1.6}
+.wire.direct{stroke-width:3}
+.edge.err .wire{stroke:var(--err)}
+.edge.sel .wire{stroke:var(--amber);stroke-width:2.6}
+.ehit{fill:none;stroke:transparent;stroke-width:16;cursor:pointer}
+.elab{font:10.5px var(--font);fill:var(--muted);paint-order:stroke;stroke:var(--void);stroke-width:4px;stroke-linejoin:round;pointer-events:none}
+.elab.k{fill:var(--text)}
+.edge.err .elab{fill:var(--err)}
+.node{cursor:pointer}
+.body{fill:var(--bar)}
+.lens{fill:var(--lens)}
+.div{stroke:var(--void);stroke-width:1.5}
+.inbar{font:500 10.5px var(--font);fill:var(--void);pointer-events:none}
+.tag{font:500 10px var(--font);fill:var(--muted)}
+.vlab{font:500 11px var(--font);fill:var(--text)}
+.strip{fill:var(--muted)}
+.st-ok .strip{fill:var(--ok)}.st-warn .strip{fill:var(--warn)}.st-err .strip{fill:var(--err)}
+.st-err .vlab{fill:var(--err)}.st-warn .vlab{fill:var(--warn)}
+.st-off .body{opacity:.45}.st-off .vlab{fill:var(--muted)}
+.box{fill:var(--panel);stroke:var(--line);stroke-width:1.3}
+.node.sel .box,.node.sel .jc{stroke:var(--amber);stroke-width:2.4}
+.node.sel .selr{stroke:var(--amber);stroke-width:2;fill:none}
+.bt{font:600 14px var(--font);fill:var(--text)}
+.bv{font:500 12px var(--font);fill:var(--text)}
+.bs{font:11px var(--font);fill:var(--muted)}
+.jc{fill:var(--panel);stroke:var(--line);stroke-width:1.3}
+.jx{stroke:var(--text);stroke-width:1.3}
+.port{fill:var(--void);stroke:var(--text);stroke-width:1.5;pointer-events:none}
+.port.o{fill:var(--text)}
+.phit{fill:transparent;cursor:crosshair}
+.linking .port.i{stroke:var(--amber);stroke-width:3}
+.plab{font:600 10px var(--font);fill:var(--muted)}
+.temp{stroke:var(--amber);stroke-width:2;stroke-dasharray:5 4;fill:none;pointer-events:none}
+.ghost{position:fixed;pointer-events:none;z-index:50;background:var(--amber);color:#222325;font-size:12px;font-weight:500;padding:4px 8px;border-radius:6px;transform:translate(-50%,-130%)}
+.st-w{stop-color:var(--warm)}.st-c{stop-color:var(--lcool)}
+.st-r{stop-color:var(--lr)}.st-g{stop-color:var(--lg)}.st-b{stop-color:var(--lb)}.st-wh{stop-color:var(--lw)}
+
+@media (max-width:860px){
+  html,body{height:auto}
+  .app{display:flex;flex-direction:column;height:auto}
+  header .desc,.hint,.legend{display:none}
+  .stage{height:56vh;min-height:360px}
+  .toolbar{max-width:none}
+  .readout{max-width:calc(100% - 24px)}
+  .side{border-left:0;border-top:1px solid var(--line);overflow:visible}
+}
+@media (prefers-reduced-motion:reduce){*{transition:none!important}}
+</style>
+
+<div class="app">
+  <header>
+    <h1>Linealuce 27 circuit</h1>
+    <span class="desc">Voltage drop, cable lengths and cross-sections for Full Remote 48 V DC runs</span>
+    <div class="acts">
+      <button class="btn" id="b-shot" type="button">Screenshot</button>
+      <button class="btn" id="b-save" type="button">Save scheme</button>
+      <button class="btn" id="b-about" type="button">About</button>
+      <button class="btn primary" id="b-open" type="button">Open scheme</button>
+      <input type="file" id="file" accept=".json,application/json" hidden>
+    </div>
+  </header>
+
+  <div class="stage" id="stage">
+    <svg id="cv" xmlns="http://www.w3.org/2000/svg" aria-label="Circuit schematic">
+      <defs id="defs">
+        <pattern id="gmin" width="20" height="20" patternUnits="userSpaceOnUse"><path class="g-minor" d="M20 0H0V20"/></pattern>
+        <pattern id="gmaj" width="100" height="100" patternUnits="userSpaceOnUse"><rect width="100" height="100" fill="url(#gmin)"/><path class="g-major" d="M100 0H0V100"/></pattern>
+        <linearGradient id="lgTW"><stop offset="0" class="st-w"/><stop offset="1" class="st-c"/></linearGradient>
+        <linearGradient id="lgRGBW"><stop offset="0" class="st-r"/><stop offset=".33" class="st-g"/><stop offset=".66" class="st-b"/><stop offset="1" class="st-wh"/></linearGradient>
+      </defs>
+      <g id="world"></g>
+    </svg>
+    <div class="toolbar" id="toolbar">
+      <div class="tgroup" id="tb-add">
+        <button class="btn" type="button" data-add="psu">Power supply</button>
+        <button class="btn" type="button" data-add="drv">Driver</button>
+        <button class="btn" type="button" data-add="jct">Junction</button>
+      </div>
+      <div class="tgroup"><div class="segc" id="famsel" role="group" aria-label="Luminaire version"></div></div>
+      <div class="tgroup" id="lumbtns"></div>
+      <div class="tgroup"><div class="segc" id="unitsel" role="group" aria-label="Units">
+        <button type="button" data-units="si" aria-pressed="true">m · mm²</button>
+        <button type="button" data-units="imp" aria-pressed="false">ft · AWG</button>
+      </div></div>
+      <div class="tgroup">
+        <button class="btn" type="button" id="zout" aria-label="Zoom out">−</button>
+        <button class="btn" type="button" id="zin" aria-label="Zoom in">+</button>
+        <button class="btn" type="button" id="zfit">Fit</button>
+      </div>
+    </div>
+    <div class="legend" aria-hidden="true">
+      <span><i style="background:var(--ok)"></i>Within limits</span>
+      <span><i style="background:var(--warn)"></i>Margin under 0.3 V</span>
+      <span><i style="background:var(--err)"></i>Out of limits</span>
+      <span><i style="background:var(--muted)"></i>Not powered</span>
+    </div>
+    <div id="pend" hidden>Pick the input ○ of a luminaire, junction or driver. Esc cancels.</div>
+    <div class="readout" id="readout">Point at a luminaire or cable to read its values</div>
+    <div class="hint">Drag ● to ○ to wire · drag to pan · wheel to zoom · double-click to fit</div>
+  </div>
+
+  <aside class="side" id="panel"></aside>
+</div>
+
+<div id="drop" hidden>Drop a scheme file to open it</div>
+<div id="toast" hidden></div>
+
+<dialog id="dlg-about">
+  <h3>About</h3>
+  <p>I made this tool to check Linealuce 27 Full Remote circuits in minutes, without a spreadsheet for every project.</p>
+  <p>Place power supplies, drivers and luminaires, wire them together and the page calculates the voltage at every luminaire, the drop in each cable, the allowed cable lengths and cross-sections, and checks power supply and driver loads against the iGuzzini instruction sheets for the Mono, Tunable White and RGBW versions.</p>
+  <p>Nothing leaves your browser. The page loads one font stylesheet and sends nothing. Schemes stay in memory until you save them as a file, and files you open are read locally.</p>
+  <div class="sig"><b>Nikolay Mikhaylov</b>Suggestions and corrections are welcome: <span id="mail"></span></div>
+  <div class="row"><button class="btn" type="button" data-close>Close</button></div>
+</dialog>
+
+<dialog id="dlg-save">
+  <h3>Save scheme</h3>
+  <p id="save-msg">Download the scheme as a file, or copy the text and keep it anywhere. Open it again with Open scheme or by dropping the file on the page.</p>
+  <label for="save-text" class="note" style="display:block;margin-bottom:4px">Scheme file contents</label>
+  <textarea id="save-text" readonly spellcheck="false"></textarea>
+  <div class="row"><a class="btn" id="save-dl" download="linealuce-scheme.json" href="#">Download file</a><button class="btn" type="button" id="save-copy">Copy text</button><button class="btn" type="button" data-close>Close</button></div>
+</dialog>
+
+<dialog id="dlg-shot">
+  <h3>Screenshot</h3>
+  <p>The clipboard is not available here. Right-click the image and copy or save it.</p>
+  <img id="shot-img" alt="Screenshot of the circuit with power supply tables">
+  <div class="row"><a class="btn" id="shot-dl" download="linealuce-circuit.png" href="#">Download image</a><button class="btn" type="button" data-close>Close</button></div>
+</dialog>
+
+<script>
+/* ---------- Data from the iGuzzini instruction sheets ---------- */
+const FAM={
+  mono:{name:'Monochromatic',short:'Mono',sheet:'IS18234/15',lens:[329,625,920,1216,1511],Ipm:.28,Wpm:13,r:.26,vEnd:45,Imax:2.9,run:10.5,nch:1,single:1,F:'X773',M:'X173',EXT:'X720'},
+  tw:{name:'Tunable White',short:'TW',sheet:'IS21677/01',lens:[625,920,1216,1511],Ipm:.28,r:.19,vEnd:45,Imax:2.9,run:10.5,nch:2,single:.5,F:'X774',M:'X293',EXT:'X720',ch:{625:3.84,920:5.75,1216:7.67,1511:9.6}},
+  rgbw:{name:'RGBW',short:'RGBW',sheet:'IS20350/07',lens:[625,1216],Ipm:.29,r:.28,vEnd:46,Imax:2.1,run:7.2,nch:4,single:.25,F:'X714',M:'X719',EXT:'X751',ch:{625:2,1216:4.1}}
+};
+const V_START_MAX=50, LC_MAX=100;
+// end: F = female connector + free ends (plugs onto the luminaire's male input)
+//      M = male connector + free ends (plugs into the luminaire's female output)
+//      MF = extension with connectors at both ends
+// R: loop resistance = ΔV from the sheet's table ÷ current of its maximum-length row
+const IG={
+  X774:{g:'tw',end:'F',L:.35,R:.08/2.9},
+  X289:{g:'tw',end:'F',L:1.5,R:.36/2.9},
+  X290:{g:'tw',end:'F',L:3,R:.72/2.9},
+  X291:{g:'tw',end:'F',L:5,R:1.19/2.9},
+  X293:{g:'tw',end:'M',L:1.5,R:.36/2.9},
+  X720:{g:'twmono',end:'MF',L:.6,R:.16/2.94},
+  X721:{g:'twmono',end:'MF',L:1.5,R:.40/2.94},
+  X773:{g:'mono',end:'F',L:.35,R:.09/2.94},
+  X169:{g:'mono',end:'F',L:1.5,R:.41/2.94},
+  X170:{g:'mono',end:'F',L:3,R:.81/2.94},
+  X171:{g:'mono',end:'F',L:5,R:1.34/2.94},
+  X173:{g:'mono',end:'M',L:1.5,R:.41/2.94},
+  X714:{g:'rgbw',end:'F',L:.35,R:.09/2.088},
+  X715:{g:'rgbw',end:'F',L:1.5,R:.39/2.088},
+  X716:{g:'rgbw',end:'F',L:3,R:.76/2.088},
+  X717:{g:'rgbw',end:'F',L:5,R:1.27/2.088},
+  X719:{g:'rgbw',end:'M',L:1.5,R:.39/2.088},
+  X751:{g:'rgbw',end:'MF',L:.6,R:.15/2.088},
+  X752:{g:'rgbw',end:'MF',L:1.5,R:.38/2.088}
+};
+const END_NAME={F:'female connector, free ends',M:'male connector, free ends',MF:'male–female extension'};
+const IG_GROUPS=[['tw','Tunable White'],['twmono','Tunable White and Mono'],['mono','Monochromatic'],['rgbw','RGBW']];
+const igImax=a=>IG[a].g==='rgbw'?FAM.rgbw.Imax:2.9;
+const igFits=(a,fam)=>IG[a].g===fam||(IG[a].g==='twmono'&&(fam==='tw'||fam==='mono'));
+const PSU={
+  X780:{P:40,min:44,max:53},X781:{P:80,min:43,max:53},X403:{P:120,min:43,max:53},
+  X404:{P:240,min:44.8,max:51.2},X405:{P:480,min:40.8,max:50.4,table:365},
+  PF72:{P:35,min:48,max:48,fixed:true,tol:2},PF73:{P:60,min:48,max:48,fixed:true,tol:2}
+};
+const DRV={
+  '9639':{name:'9639 · DALI DT6 / DMX',short:'9639',vin:51,ch:[180,180,180,180],tot:720,min:0,fams:['mono','tw','rgbw']},
+  'MWP3-DT6':{name:'MWP3 · DALI DT6',short:'MWP3 DT6',vin:50,ch:[240,120,120,120],tot:240,min:20,fams:['mono','tw','rgbw']},
+  'MWP3-DT8':{name:'MWP3 · DALI DT8',short:'MWP3 DT8',vin:50,ch:[120,120,120,120],tot:240,min:20,fams:['mono','tw']}
+};
+const MODES={
+  tw:{name:'Tunable White · A = CH1+CH2, B = CH3+CH4',short:'TW',fam:'tw',ports:{A:[0,1],B:[2,3]}},
+  rgbw:{name:'RGBW · CH1–CH4 on one output',short:'RGBW',fam:'rgbw',ports:{OUT:[0,1,2,3]}},
+  mono4:{name:'Mono · 4 independent channels (4CH)',short:'Mono 4CH',fam:'mono',ports:{CH1:[0],CH2:[1],CH3:[2],CH4:[3]}},
+  mono1:{name:'Mono · channels joined (1CH)',short:'Mono 1CH',fam:'mono',ports:{OUT:[0,1,2,3]}}
+};
+const FAM_MODE={tw:'tw',rgbw:'rgbw',mono:'mono4'};
+const JCT={X188:'X188 · 4P inline connector',X189:'X189 · 4P splitter',BZK7:'BZK7 · 2P T-junction',X825:'X825 · 5P splitter',X826:'X826 · 5P inline connector',BOX:'Junction box'};
+const SEC_SI=[0.5,0.75,1,1.5,2.5,4,6,10];
+const AWG=[[20,.519],[18,.823],[16,1.31],[14,2.08],[12,3.31],[10,5.26],[8,8.37]];
+const MAIL=['nikolay.s.mikhaylov','gmail.com'];
+
+/* ---------- Helpers ---------- */
+const $=s=>document.querySelector(s);
+const fmt=(v,d=2)=>(v==null||!isFinite(v))?'—':v.toFixed(d).replace('-','−');
+const num=v=>parseFloat(String(v).replace(',','.'));
+const uid=()=>Math.random().toString(36).slice(2,10);
+const esc=s=>String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const unitPfull=n=>{const f=FAM[n.fam];return f.ch?f.nch*f.ch[n.L]:f.Wpm*n.L/1000;};
+const sf=n=>S.settings.scen==='single'?FAM[n.fam].single:1;
+// units: compute in SI, convert only for display
+const imp=()=>S.settings.units==='imp';
+const lenU=()=>imp()?'ft':'m';
+const fromL=m=>imp()?m*3.28084:m;
+const toL=v=>imp()?v/3.28084:v;
+const fmtL=(m,d=1)=>`${fmt(fromL(m),d)} ${lenU()}`;
+const secList=()=>imp()?AWG.map(a=>a[1]):SEC_SI;
+const secName=mm2=>{if(imp()){const a=AWG.find(a=>Math.abs(a[1]-mm2)/a[1]<.01);if(a)return a[0]+' AWG';}return mm2+' mm²';};
+const defLen=long=>imp()?(long?30:15)/3.28084:(long?10:5);
+const defSec=big=>imp()?(big?3.31:1.31):(big?2.5:1.5);
+let framed=true;try{framed=window.self!==window.top;}catch(e){}
+
+/* ---------- State: one object, rendering is a function of it ---------- */
+let S, sel=null, pending=null, res=null, drag=null;
+let view={x:40,y:40,k:1};
+let palFam='tw';
+const openSet=new Set();
+const svg=$('#cv'), world=$('#world'), panel=$('#panel');
+
+const seg=(L,Sx)=>({kind:'user',L,S:Sx});
+const ig=art=>({kind:'ig',art});
+function scheme(nodes,edges){return{nodes,edges,settings:{scen:'all',rho:0.0174,units:S?S.settings.units:'si'}};}
+function runOf(N,E,fam,L,count,x,y,from,port,segs){
+  let prev=null;
+  for(let i=0;i<count;i++){const n={id:uid(),type:'lum',fam,L,n:1,x:x+i*(L/1000*90+6),y};N.push(n);
+    E.push(prev?{id:uid(),from:prev.id,port:'out',to:n.id,segs:[]}:{id:uid(),from,port,to:n.id,segs});prev=n;}
+  return prev;
+}
+const PRESETS={
+  mono:{name:'Mono run',build(){const N=[],E=[];const p={id:uid(),type:'psu',art:'X404',V:49.8,x:0,y:0};N.push(p);
+    runOf(N,E,'mono',1511,6,250,24,p.id,'out',[seg(20,2.5),ig('X773')]);return scheme(N,E);}},
+  tw:{name:'TW via 9639',build(){const N=[],E=[];const p={id:uid(),type:'psu',art:'X404',V:49,x:0,y:60},d={id:uid(),type:'drv',art:'9639',mode:'tw',x:210,y:52};N.push(p,d);
+    E.push({id:uid(),from:p.id,port:'out',to:d.id,segs:[seg(10,2.5)]});
+    runOf(N,E,'tw',1511,5,470,10,d.id,'A',[seg(8,1.5),ig('X774')]);
+    runOf(N,E,'tw',920,6,470,140,d.id,'B',[seg(12,1.5),ig('X289')]);return scheme(N,E);}},
+  rgbw:{name:'RGBW via MWP3',build(){const N=[],E=[];const p={id:uid(),type:'psu',art:'X403',V:49,x:0,y:60},d={id:uid(),type:'drv',art:'MWP3-DT6',mode:'rgbw',x:210,y:52};N.push(p,d);
+    E.push({id:uid(),from:p.id,port:'out',to:d.id,segs:[seg(10,2.5)]});
+    const last=runOf(N,E,'rgbw',1216,3,470,84,d.id,'OUT',[seg(10,1.5),ig('X714')]);
+    const x=last.x+1216/1000*90+140;
+    runOf(N,E,'rgbw',1216,2,x,84,last.id,'out',[ig('X719'),seg(4,1.5),ig('X714')]);return scheme(N,E);}},
+  mixed:{name:'Mixed example',build(){const N=[],E=[];
+    const p1={id:uid(),type:'psu',art:'X405',V:49.4,x:0,y:150},d1={id:uid(),type:'drv',art:'9639',mode:'tw',x:220,y:40},d2={id:uid(),type:'drv',art:'MWP3-DT6',mode:'rgbw',x:220,y:230},p2={id:uid(),type:'psu',art:'X404',V:49.6,x:0,y:420};
+    N.push(p1,d1,d2,p2);
+    E.push({id:uid(),from:p1.id,port:'out',to:d1.id,segs:[seg(15,2.5)]},{id:uid(),from:p1.id,port:'out',to:d2.id,segs:[seg(15,2.5)]});
+    runOf(N,E,'tw',1511,5,520,40,d1.id,'A',[seg(8,1.5),ig('X774')]);
+    runOf(N,E,'tw',920,4,520,130,d1.id,'B',[seg(12,1.5),ig('X289')]);
+    runOf(N,E,'rgbw',1216,5,520,250,d2.id,'OUT',[seg(10,1.5),ig('X714')]);
+    const last=runOf(N,E,'mono',1216,4,520,430,p2.id,'out',[seg(20,2.5),ig('X773')]);
+    runOf(N,E,'mono',1216,3,last.x+1216/1000*90+150,430,last.id,'out',[ig('X173'),seg(3,1.5),ig('X773')]);
+    return scheme(N,E);}},
+  empty:{name:'Empty',build(){return scheme([],[]);}}
+};
+
+/* Import: whitelist every field, regenerate ids, coerce numbers — nothing from a file reaches the DOM unchecked */
+function migrate(src){
+  if(!src||!Array.isArray(src.nodes)||!Array.isArray(src.edges)) throw new Error('shape');
+  const idmap=new Map(),nodes=[],edges=[];
+  const fin=(v,d)=>{v=Number(v);return isFinite(v)?v:d;};
+  for(const o of src.nodes){
+    if(!o||typeof o!=='object')continue;
+    const n={id:uid(),type:o.type,x:Math.round(fin(o.x,0)),y:Math.round(fin(o.y,0))};
+    if(o.type==='lum'){n.fam=FAM[o.fam]?o.fam:'tw';n.L=FAM[n.fam].lens.includes(+o.L)?+o.L:FAM[n.fam].lens[0];n.n=Math.min(40,Math.max(1,Math.round(fin(o.n,1))));}
+    else if(o.type==='psu'){n.art=PSU[o.art]?o.art:'X404';n.V=Math.min(60,Math.max(30,fin(o.V,48)));}
+    else if(o.type==='drv'){n.art=DRV[o.art]?o.art:'9639';n.mode=MODES[o.mode]?o.mode:'tw';}
+    else if(o.type==='jct'){n.art=JCT[o.art]?o.art:'BOX';}
+    else continue;
+    idmap.set(String(o.id),n.id);nodes.push(n);
+  }
+  for(const o of src.edges){
+    if(!o)continue;const from=idmap.get(String(o.from)),to=idmap.get(String(o.to));if(!from||!to)continue;
+    const fn=nodes.find(n=>n.id===from);const ports=fn.type==='drv'?Object.keys(MODES[fn.mode].ports):['out'];
+    const segs=(Array.isArray(o.segs)?o.segs:[]).map(g=>g&&g.kind==='ig'&&IG[g.art]?{kind:'ig',art:g.art}:g&&g.kind==='user'?{kind:'user',L:Math.min(1000,Math.max(.01,fin(g.L,5))),S:Math.min(50,Math.max(.1,fin(g.S,1.5)))}:null).filter(Boolean);
+    edges.push({id:uid(),from,to,port:ports.includes(o.port)?o.port:ports[0],segs});
+  }
+  const st=src.settings||{};
+  let scen=st.scen==='single'?'single':'all';if(st.mf!=null&&st.mf<1)scen='single';
+  const rho=fin(st.rho,0.0174);
+  return {nodes,edges,settings:{scen,rho:rho>0&&rho<1?rho:0.0174,units:st.units==='imp'?'imp':(S?S.settings.units:'si')}};
+}
+
+/* ---------- Geometry ---------- */
+const LPX=90;
+function geom(n){
+  if(n.type==='lum'){const w=Math.max(32,n.L/1000*n.n*LPX),h=24;return{w,h,ports:{in:[n.x,n.y+h/2],out:[n.x+w,n.y+h/2]}}}
+  if(n.type==='psu'){const w=136,h=72;return{w,h,ports:{out:[n.x+w,n.y+h/2]}}}
+  if(n.type==='drv'){
+    const names=Object.keys(MODES[n.mode].ports),k=names.length,w=136,h=k>2?112:88,s=22;
+    const ports={in:[n.x,n.y+h/2]};names.forEach((p,i)=>ports[p]=[n.x+w,n.y+h/2+(i-(k-1)/2)*s]);
+    return{w,h,ports,names};
+  }
+  const w=34,h=34;return{w,h,ports:{in:[n.x,n.y+h/2],out:[n.x+w,n.y+h/2]}}
+}
+const findNode=id=>S.nodes.find(n=>n.id===id);
+const findEdge=id=>S.edges.find(e=>e.id===id);
+let lumNo={};
+function label(n){
+  if(!n) return '?';
+  if(n.type==='psu') return 'PSU '+n.art;
+  if(n.type==='drv') return 'Driver '+DRV[n.art].short;
+  if(n.type==='jct') return n.art==='BOX'?'Junction box':'Junction '+n.art;
+  return '#'+lumNo[n.id]+' '+FAM[n.fam].short+' '+(n.n>1?n.n+'×':'')+n.L;
+}
+
+/* ---------- Calculation ---------- */
+function compute(){
+  const rho=S.settings.rho;
+  const N=new Map(S.nodes.map(n=>[n.id,n]));
+  const outE=new Map(), inE=new Map();
+  S.nodes.forEach(n=>outE.set(n.id,[]));
+  S.edges.forEach(e=>{if(N.has(e.from)&&N.has(e.to)){outE.get(e.from).push(e);inE.set(e.to,e);}});
+  const R={node:{},edge:{},psu:{},issues:[]};
+  S.nodes.forEach(n=>R.node[n.id]={powered:false});
+  lumNo={};let k=0;S.nodes.forEach(n=>{if(n.type==='lum')lumNo[n.id]=++k;});
+  const segR=s=>s.kind==='ig'?IG[s.art].R:2*rho*s.L/s.S;
+  const segL=s=>s.kind==='ig'?IG[s.art].L:+s.L;
+  const unitI=n=>FAM[n.fam].Ipm*n.L/1000*sf(n);
+
+  function down(id){
+    const n=N.get(id), r=R.node[id];
+    let I=n.type==='lum'?unitI(n)*n.n:0, P=n.type==='lum'?unitPfull(n)*sf(n)*n.n:0, cnt=n.type==='lum'?n.n:0;
+    r.Iown=I;
+    for(const e of outE.get(id)){
+      const c=down(e.to), cr=R.node[e.to];
+      R.edge[e.id]={I:c,R:e.segs.reduce((a,s)=>a+segR(s),0),len:e.segs.reduce((a,s)=>a+segL(s),0)};
+      I+=c;P+=cr.P;cnt+=cr.cnt;
+    }
+    Object.assign(r,{I,P,cnt});return I;
+  }
+  function volt(id,vin,dist,root,drv){
+    const n=N.get(id), r=R.node[id];
+    Object.assign(r,{powered:true,Vin:vin,dist,root,drv});
+    let v=vin,minSlack=Infinity,maxStart=-Infinity,drvM=Infinity,loss=0;
+    if(n.type==='lum'){
+      const f=FAM[n.fam],Iu=unitI(n), ru=f.r*n.L/1000, Iext=r.I-r.Iown;r.units=[];
+      for(let j=1;j<=n.n;j++){const Ia=Iext+(n.n-j)*Iu;const ve=v-ru*(Ia+Iu/2);r.units.push([v,ve]);v=ve;}
+      r.Vend=v;minSlack=v-f.vEnd;maxStart=vin;
+    }
+    if(n.type==='drv'){drvM=DRV[n.art].vin-vin;drv=n.id;}
+    r.Vout=v;
+    for(const e of outE.get(id)){
+      const re=R.edge[e.id];re.dV=re.R*re.I;re.Vfrom=v;re.Vto=v-re.dV;re.loss=re.I*re.I*re.R;loss+=re.loss;
+      const s=volt(e.to,re.Vto,dist+re.len,root,drv);
+      re.minSlack=s.minSlack;re.maxStart=s.maxStart;
+      minSlack=Math.min(minSlack,s.minSlack);maxStart=Math.max(maxStart,s.maxStart);drvM=Math.min(drvM,s.drvM);loss+=s.loss;
+    }
+    Object.assign(r,{minSlack,maxStart,drvM});
+    return {minSlack,maxStart,drvM,loss};
+  }
+  function lumsUnder(id,acc){
+    for(const e of outE.get(id)){const c=N.get(e.to);if(c.type==='lum')acc.push(c);if(c.type!=='drv')lumsUnder(c.id,acc);}
+    return acc;
+  }
+  S.nodes.forEach(n=>{if(!inE.has(n.id))down(n.id);});
+
+  const iss=(lvl,ref,text)=>R.issues.push({lvl,ref,text});
+  const psus=S.nodes.filter(n=>n.type==='psu');
+  if(!psus.length) iss('warn',null,'Add a power supply. Voltages are calculated from it.');
+  for(const n of psus){
+    const p=PSU[n.art], r=R.node[n.id];
+    if(p.fixed) n.V=48;
+    const s=volt(n.id,n.V,0,n.id,null);
+    const load=r.P+s.loss;
+    const lo=Math.max(p.min,isFinite(s.minSlack)?n.V-s.minSlack:p.min);
+    const hi=Math.min(p.max,isFinite(s.maxStart)?n.V+(V_START_MAX-s.maxStart):Infinity,n.V+s.drvM);
+    let rec=Math.round((lo+hi)/2*10)/10;if(rec<lo||rec>hi)rec=Math.round((lo+hi)/2*100)/100;
+    R.psu[n.id]={load,loss:s.loss,lo,hi,rec,feasible:lo<=hi+1e-9,up:hi-n.V,minSlack:s.minSlack,maxStart:s.maxStart};
+    if(!p.fixed&&(n.V<p.min-1e-9||n.V>p.max+1e-9)) iss('err',n.id,`${label(n)}: set point ${fmt(n.V,1)} V is outside its ${fmt(p.min,1)}–${fmt(p.max,1)} V range.`);
+    if(load>p.P) iss('err',n.id,`${label(n)} is overloaded: ${fmt(load,0)} W of ${p.P} W.`);
+    else if(p.table&&load>p.table) iss('warn',n.id,`${label(n)}: ${fmt(load,0)} W is more than the ${p.table} W its compatibility table allows.`);
+    if(r.cnt===0) iss('warn',n.id,`${label(n)}: no luminaires connected.`);
+    else if(p.fixed){
+      if(s.minSlack<0) iss('err',n.id,`${label(n)} has a fixed 48 V output and the farthest luminaire is ${fmt(-s.minSlack)} V below its limit. Shorten cables or use a larger cross-section.`);
+      else if(s.minSlack<p.tol) iss('warn',n.id,`${label(n)}: output tolerance is ±${p.tol} V. At ${48-p.tol} V the farthest luminaire would be ${fmt(p.tol-s.minSlack)} V below its limit.`);
+    }
+    else if(!R.psu[n.id].feasible) iss('err',n.id,`${label(n)}: no set point gives every luminaire its allowed voltage. Shorten cables, increase the cross-section or split the circuit.`);
+  }
+  for(const n of S.nodes){
+    const r=R.node[n.id];
+    if(n.type==='lum'){
+      const f=FAM[n.fam];
+      if(!r.powered){iss('warn',n.id,`${label(n)} is not connected to a power supply.`);r.st='off';continue;}
+      let st='ok';
+      const rootPsu=PSU[findNode(r.root).art];
+      if(n.fam!=='mono'&&!r.drv){iss('err',n.id,`${label(n)}: ${f.name} needs a driver (9639 or MWP3) between the power supply and the luminaire.`);st='err';}
+      if(r.drv){const d=findNode(r.drv),m=MODES[d.mode];if(m.fam!==n.fam){iss('err',n.id,`${label(n)}: driver ${DRV[d.art].short} is wired for ${m.short}, not ${f.name}.`);st='err';}}
+      if(rootPsu.fixed&&n.fam!=='mono'){iss('warn',n.id,`${label(n)}: PF72 and PF73 are listed only for the monochromatic version.`);if(st==='ok')st='warn';}
+      if(r.Vin>V_START_MAX+1e-9){iss('err',n.id,`${label(n)}: ${fmt(r.Vin)} V at the input is above 50 V.`);st='err';}
+      if(r.Vend<f.vEnd-1e-9){iss('err',n.id,`${label(n)}: ${fmt(r.Vend)} V at the end is below ${f.vEnd} V.`);st='err';}
+      if(r.I>f.Imax+1e-9){iss('err',n.id,`${label(n)}: ${fmt(r.I)} A in the bus is above ${fmt(f.Imax,1)} A, the connector limit (about ${fmtL(f.run)} per feed).`);st='err';}
+      if(st==='ok'&&r.Vend-f.vEnd<0.3){iss('warn',n.id,`${label(n)}: only ${fmt(r.Vend-f.vEnd)} V margin to ${f.vEnd} V.`);st='warn';}
+      if(r.dist>LC_MAX){iss('warn',n.id,`${label(n)}: ${fmtL(r.dist)} of cable from the power supply, beyond the guaranteed ${fmtL(LC_MAX,0)}.`);if(st==='ok')st='warn';}
+      r.st=st;
+    } else if(n.type==='drv'){
+      const d=DRV[n.art],m=MODES[n.mode];let st='ok';
+      if(!r.powered){iss('warn',n.id,`${label(n)} is not connected to a power supply.`);r.st='off';continue;}
+      if(r.Vin>d.vin+1e-9){iss('err',n.id,`${label(n)}: ${fmt(r.Vin)} V at the input is above ${d.vin} V.`);st='err';}
+      if(!d.fams.includes(m.fam)){iss('warn',n.id,`${label(n)} is not listed for the ${FAM[m.fam].name} version.`);if(st==='ok')st='warn';}
+      const ch=[0,0,0,0],used=[false,false,false,false];
+      for(const e of outE.get(n.id)){
+        const cl=m.ports[e.port]||[];
+        const c=N.get(e.to);const list=c.type==='lum'?[c]:[];if(c.type!=='drv')lumsUnder(c.id,list);
+        cl.forEach(i=>used[i]=true);
+        for(const l of list){const f=FAM[l.fam];
+          if(f.nch===1)cl.forEach(i=>ch[i]+=unitPfull(l)*l.n/cl.length);
+          else cl.slice(0,f.nch).forEach(i=>ch[i]+=f.ch[l.L]*l.n);}
+      }
+      r.ch=ch;r.used=used;r.tot=r.P;
+      ch.forEach((pw,i)=>{if(pw>d.ch[i]+1e-9){iss('err',n.id,`${label(n)}: CH${i+1} carries ${fmt(pw,1)} W, the limit is ${d.ch[i]} W.`);st='err';}});
+      if(r.tot>d.tot){iss('err',n.id,`${label(n)}: ${fmt(r.tot,0)} W in total, the limit is ${d.tot} W.`);st='err';}
+      if(d.min)ch.forEach((pw,i)=>{if(used[i]&&pw<d.min){iss('warn',n.id,`${label(n)}: CH${i+1} carries ${fmt(pw,1)} W. MWP3 needs more than 20 W on every channel in use.`);if(st==='ok')st='warn';}});
+      r.st=st;
+    } else if(n.type==='jct'){
+      r.st=r.powered?'ok':'off';
+      if(!r.powered) iss('warn',n.id,`${label(n)} is not connected to a power supply.`);
+    } else r.st='ok';
+  }
+  // cables and connectors
+  for(const e of S.edges){
+    const re=R.edge[e.id];if(!re)continue;
+    const a=N.get(e.from),b=N.get(e.to),segs=e.segs,where=`${label(a)} → ${label(b)}`;
+    const igs=segs.filter(s=>s.kind==='ig');
+    if(igs.length){const lim=Math.min(...igs.map(s=>igImax(s.art)));
+      if(re.I>lim+1e-9){iss('err',e.id,`${where}: ${fmt(re.I)} A in cable ${igs.map(s=>s.art).join(' + ')}, the limit is ${fmt(lim,1)} A.`);re.st='err';}}
+    if(segs.length){
+      if(a.type==='lum'){const s0=segs[0];
+        if(!(s0.kind==='ig'&&IG[s0.art].end!=='F')){iss('err',e.id,`${where}: the luminaire's female output needs a male connector first (${FAM[a.fam].M} or an extension). A customer cable or a female cable cannot plug into it.`);re.st='err';}}
+      if(b.type==='lum'){const sl=segs[segs.length-1];
+        if(!(sl.kind==='ig'&&IG[sl.art].end!=='M')){iss('err',e.id,`${where}: the luminaire's male input needs a female connector last (${FAM[b.fam].F} or an extension). A customer cable or a male cable cannot plug into it.`);re.st='err';}}
+      segs.forEach((s,i)=>{
+        if(s.kind!=='ig'||IG[s.art].end!=='MF')return;
+        const nb=[segs[i-1],segs[i+1]];
+        if(nb.some(x=>x&&x.kind==='user')){iss('err',e.id,`${where}: ${s.art} has connectors at both ends, so it cannot join a customer cable. Use a free-end cable (${FAM[b.type==='lum'?b.fam:(a.type==='lum'?a.fam:'tw')].F} / ${FAM[b.type==='lum'?b.fam:(a.type==='lum'?a.fam:'tw')].M}) on that side.`);re.st='err';}
+      });
+      const fam=b.type==='lum'?b.fam:(a.type==='lum'?a.fam:null);
+      if(fam)igs.forEach(s=>{if(!igFits(s.art,fam))iss('warn',e.id,`${where}: ${s.art} is a ${IG_GROUPS.find(g=>g[0]===IG[s.art].g)[1]} cable, the luminaire is ${FAM[fam].name}.`);});
+    }
+  }
+  for(const is of R.issues){const r=R.node[is.ref];if(r&&is.lvl==='err')r.st='err';else if(r&&is.lvl==='warn'&&r.st==='ok')r.st='warn';}
+  R.issues.sort((a,b)=>(a.lvl==='err'?0:1)-(b.lvl==='err'?0:1));
+
+  let cnt=0,len=0,P=0,I=0,minSlack=Infinity,maxStart=-Infinity;
+  for(const n of S.nodes){const r=R.node[n.id];
+    if(n.type==='lum'){cnt+=n.n;len+=n.L*n.n/1000;if(r.powered){minSlack=Math.min(minSlack,r.Vend-FAM[n.fam].vEnd);maxStart=Math.max(maxStart,r.Vin);}}
+    if(n.type==='psu'){P+=R.psu[n.id].load;I+=r.I;}}
+  R.sum={cnt,len,P,I,minSlack,maxStart};
+  return R;
+}
+function partsList(){
+  const rows=[],add=(k,q,u='pcs')=>{const r=rows.find(x=>x[0]===k);if(r)r[1]+=q;else rows.push([k,q,u]);};
+  S.nodes.filter(n=>n.type==='psu').forEach(n=>add('Power supply '+n.art,1));
+  S.nodes.filter(n=>n.type==='drv').forEach(n=>add('Driver '+DRV[n.art].short,1));
+  S.nodes.filter(n=>n.type==='lum').sort((a,b)=>a.fam.localeCompare(b.fam)||a.L-b.L).forEach(n=>add(`Linealuce 27 ${FAM[n.fam].short} ${n.L} mm`,n.n));
+  const cab={},user={};let joints=0;
+  for(const e of S.edges){
+    e.segs.forEach((s,i)=>{
+      if(s.kind==='ig')cab[s.art]=(cab[s.art]||0)+1;else user[s.S]=(user[s.S]||0)+s.L;
+      const nx=e.segs[i+1];if(nx&&(s.kind==='user')!==(nx.kind==='user'))joints++;
+    });
+  }
+  Object.keys(cab).sort().forEach(a=>add(`Cable ${a} · ${END_NAME[IG[a].end]}`,cab[a]));
+  S.nodes.filter(n=>n.type==='jct').forEach(n=>add(JCT[n.art],1));
+  Object.keys(user).sort((a,b)=>a-b).forEach(s=>rows.push([`Customer cable ${secName(+s)}`,fromL(user[s]),lenU()]));
+  return {rows,joints};
+}
+
+/* ---------- Schematic ---------- */
+function applyView(){world.setAttribute('transform',`translate(${view.x} ${view.y}) scale(${view.k})`);}
+function portSVG(id,port,[x,y],dir){
+  return `<circle class="phit" data-port="${port}" data-pn="${id}" cx="${x}" cy="${y}" r="12"/><circle class="port ${dir}" cx="${x}" cy="${y}" r="5"/>`;
+}
+function segShort(s){return s.kind==='ig'?s.art:`${fmt(fromL(s.L),fromL(s.L)<10?1:0)} ${lenU()} ${secName(s.S)}`;}
+function buildContent(selected){
+  const N=new Map(S.nodes.map(n=>[n.id,n]));
+  let h='';
+  for(const e of S.edges){
+    const a=N.get(e.from),b=N.get(e.to);if(!a||!b)continue;
+    const p1=geom(a).ports[e.port],p2=geom(b).ports.in;if(!p1||!p2)continue;
+    const dx=Math.max(24,Math.abs(p2[0]-p1[0])*.5);
+    const d=`M${p1[0]} ${p1[1]} C${p1[0]+dx} ${p1[1]} ${p2[0]-dx} ${p2[1]} ${p2[0]} ${p2[1]}`;
+    const re=res.edge[e.id]||{};const isSel=selected&&selected.kind==='edge'&&selected.id===e.id;
+    h+=`<g class="edge ${re.st==='err'?'err':''} ${isSel?'sel':''}" data-edge="${e.id}"><path class="ehit" d="${d}"/><path class="wire ${e.segs.length?'':'direct'}" d="${d}"/>`;
+    if(e.segs.length){
+      const mx=(p1[0]+p2[0])/2,my=(p1[1]+p2[1])/2;
+      h+=`<text class="elab k" x="${mx}" y="${my-4}" text-anchor="middle">${esc(e.segs.map(segShort).join(' + '))}</text>`;
+      if(re.I!=null&&res.node[e.from].powered) h+=`<text class="elab" x="${mx}" y="${my+9}" text-anchor="middle">${fmt(re.I)} A · −${fmt(re.dV)} V</text>`;
+    }
+    h+='</g>';
+  }
+  for(const n of S.nodes){
+    const g=geom(n),r=res.node[n.id]||{},s=selected&&selected.kind==='node'&&selected.id===n.id;
+    h+=`<g class="node st-${r.st||'off'} ${s?'sel':''}" data-node="${n.id}">`;
+    if(n.type==='lum'){
+      const cx=n.x+g.w/2,lf=n.fam==='tw'?'url(#lgTW)':n.fam==='rgbw'?'url(#lgRGBW)':'';
+      h+=`<text class="tag" x="${n.x}" y="${n.y-5}">#${lumNo[n.id]} ${FAM[n.fam].short}</text>`;
+      if(s) h+=`<rect class="selr" x="${n.x-3}" y="${n.y-3}" width="${g.w+6}" height="${g.h+6}" rx="4"/>`;
+      h+=`<rect class="body" x="${n.x}" y="${n.y}" width="${g.w}" height="${g.h}" rx="2"/><rect class="lens" ${lf?`fill="${lf}"`:''} x="${n.x+3}" y="${n.y+2}" width="${g.w-6}" height="3" rx="1"/>`;
+      for(let j=1;j<n.n;j++){const xx=n.x+g.w*j/n.n;h+=`<line class="div" x1="${xx}" y1="${n.y}" x2="${xx}" y2="${n.y+g.h}"/>`;}
+      h+=`<rect class="strip" x="${n.x}" y="${n.y+g.h-3}" width="${g.w}" height="3"/>`;
+      h+=`<text class="inbar" x="${cx}" y="${n.y+15}" text-anchor="middle">${n.n>1?n.n+'×':''}${n.L}</text>`;
+      h+=`<text class="vlab" x="${cx}" y="${n.y+g.h+14}" text-anchor="middle">${r.powered?fmt(r.Vend)+' V':'no power'}</text>`;
+      h+=portSVG(n.id,'in',g.ports.in,'i')+portSVG(n.id,'out',g.ports.out,'o');
+    } else if(n.type==='psu'){
+      const ps=res.psu[n.id]||{};
+      h+=`<rect class="box" x="${n.x}" y="${n.y}" width="${g.w}" height="${g.h}" rx="6"/><rect class="strip" x="${n.x}" y="${n.y+6}" width="3" height="${g.h-12}"/>`;
+      h+=`<text class="bt" x="${n.x+12}" y="${n.y+20}">PSU ${n.art}</text><text class="bv" x="${n.x+12}" y="${n.y+40}">${fmt(n.V,1)} V · ${fmt(r.I||0)} A</text><text class="bs" x="${n.x+12}" y="${n.y+58}">${fmt(ps.load||0,0)} W of ${PSU[n.art].P} W</text>`;
+      h+=portSVG(n.id,'out',g.ports.out,'o');
+    } else if(n.type==='drv'){
+      h+=`<rect class="box" x="${n.x}" y="${n.y}" width="${g.w}" height="${g.h}" rx="6"/><rect class="strip" x="${n.x}" y="${n.y+6}" width="3" height="${g.h-12}"/>`;
+      h+=`<text class="bt" x="${n.x+12}" y="${n.y+20}">${DRV[n.art].short}</text><text class="bs" x="${n.x+12}" y="${n.y+37}">${MODES[n.mode].short}</text><text class="bv" x="${n.x+12}" y="${n.y+g.h-14}">in ${r.powered?fmt(r.Vin):'—'} V</text>`;
+      g.names.forEach(p=>{const pp=g.ports[p];h+=`<text class="plab" x="${pp[0]-10}" y="${pp[1]+3.5}" text-anchor="end">${p}</text>`;});
+      h+=portSVG(n.id,'in',g.ports.in,'i');
+      g.names.forEach(p=>h+=portSVG(n.id,p,g.ports[p],'o'));
+    } else {
+      const cx=n.x+17,cy=n.y+17;
+      h+=`<circle class="jc" cx="${cx}" cy="${cy}" r="14"/><path class="jx" d="M${cx-7} ${cy}H${cx+7}M${cx} ${cy-7}V${cy+7}"/><text class="bs" x="${cx}" y="${n.y+48}" text-anchor="middle">${n.art==='BOX'?'box':n.art}</text>`;
+      h+=portSVG(n.id,'in',g.ports.in,'i')+portSVG(n.id,'out',g.ports.out,'o');
+    }
+    h+='</g>';
+  }
+  return h;
+}
+function drawCanvas(){
+  let h='<rect x="-20000" y="-20000" width="40000" height="40000" fill="url(#gmaj)"/>'+buildContent(sel);
+  if(drag&&drag.type==='connect'&&drag.moved){
+    const a=findNode(drag.from),p=geom(a).ports[drag.port];
+    h+=`<line class="temp" x1="${p[0]}" y1="${p[1]}" x2="${drag.cur.x}" y2="${drag.cur.y}"/>`;
+  }
+  world.innerHTML=h;
+  svg.classList.toggle('linking',!!pending||(drag&&drag.type==='connect'&&drag.moved));
+  $('#pend').hidden=!pending;
+  applyView();
+}
+
+/* ---------- Toolbar ---------- */
+function renderToolbar(){
+  $('#famsel').innerHTML=Object.entries(FAM).map(([k,f])=>`<button type="button" data-fam="${k}" aria-pressed="${k===palFam}">${f.short}</button>`).join('');
+  $('#lumbtns').innerHTML=FAM[palFam].lens.map(L=>`<button class="btn" type="button" data-add="lum" data-l="${L}" data-fam="${palFam}"><i class="mini ${palFam}" style="width:${Math.round(L/1000*20)+1}px"></i>${L}</button>`).join('');
+  document.querySelectorAll('#unitsel button').forEach(b=>b.setAttribute('aria-pressed',String(b.dataset.units===S.settings.units)));
+}
+$('#famsel').addEventListener('click',e=>{const b=e.target.closest('[data-fam]');if(!b)return;palFam=b.dataset.fam;renderToolbar();});
+$('#unitsel').addEventListener('click',e=>{const b=e.target.closest('[data-units]');if(!b)return;S.settings.units=b.dataset.units;renderToolbar();render();});
+
+/* ---------- Sidebar ---------- */
+const kv=rows=>`<dl class="kv">${rows.map(([k,v,c])=>`<dt>${k}</dt><dd class="${c||''}">${v}</dd>`).join('')}</dl>`;
+const ctl=(id,lab,control,val='')=>`<div class="ctl"><div class="lv"><label for="${id}">${lab}</label><span>${val}</span></div>${control}</div>`;
+const subj=(k,n,del=true)=>`<div class="subj"><div><div class="k">${k}</div><div class="n">${esc(n)}</div></div>${del?'<button class="btn small ghost" type="button" data-act="del">Delete</button>':''}</div>`;
+function secOptions(cur){
+  const list=secList();let o=list.map(x=>`<option value="${x}" ${Math.abs(x-cur)<1e-6?'selected':''}>${secName(x)}</option>`).join('');
+  if(!list.some(x=>Math.abs(x-cur)<1e-6))o=`<option value="${cur}" selected>${secName(cur)}</option>`+o;
+  return o;
+}
+function insScheme(){
+  const s=S.settings,pl=partsList();
+  return `<section><h2>Start from</h2><div class="row" style="margin-top:0">${Object.entries(PRESETS).map(([k,p])=>`<button class="btn small" type="button" data-preset="${k}">${p.name}</button>`).join('')}</div>
+  <p class="note">Click a luminaire, cable or box to see its voltages, allowed lengths and cross-sections. With a luminaire selected, the length buttons add the next one to the same run.</p></section>
+  <section><h2>Calculation</h2>
+  ${ctl('f-scen','Load scenario',`<select id="f-scen" data-scope="set" data-f="scen"><option value="all" ${s.scen==='all'?'selected':''}>All channels at 100 % (worst case)</option><option value="single" ${s.scen==='single'?'selected':''}>One channel at 100 %</option></select>`)}
+  <p class="note">One channel scales the current of TW to ½ and RGBW to ¼. Mono is unaffected.</p>
+  ${ctl('f-rho','Copper resistivity',`<input id="f-rho" inputmode="decimal" data-scope="set" data-f="rho" value="${s.rho}">`,'Ω·mm²/m')}
+  <p class="note">0.0174 is copper at 20 °C, as in the instruction sheets. Warm cable at 70 °C is about 0.0207. Always entered in SI.</p></section>
+  <section><h2>Parts list</h2>${pl.rows.length?`<div class="tw"><table>${pl.rows.map(r=>`<tr><td>${esc(r[0])}</td><td>${r[2]==='pcs'?r[1]:fmt(r[1],1)} ${r[2]}</td></tr>`).join('')}</table></div>`:'<p class="note">The scheme is empty.</p>'}
+  ${pl.joints?`<p class="note">${pl.joints} joint${pl.joints>1?'s':''} between a free-end cable and customer cable. Each needs an inline connector (X188 for Mono and TW, X826 for RGBW) or a junction box. Not counted above.</p>`:''}</section>
+  <section><details data-k="model" ${openSet.has('model')?'open':''}><summary>How it calculates</summary><ul>
+    <li>Luminaire current: Mono and TW 0.28 A/m, RGBW 0.29 A/m at 100 %. Power: Mono 13 W/m, TW 2 × channel power (625 mm → 7.68 W, 1511 mm → 19.2 W), RGBW 4 × channel power (625 mm → 8 W, 1216 mm → 16.4 W).</li>
+    <li>Voltages inside a luminaire are approximate. The internal bus resistance is not published, so it is fitted to each sheet's V start min table: Mono about 0.26 Ω/m, TW about 0.19 Ω/m, RGBW about 0.28 Ω/m, load spread evenly along the bus.</li>
+    <li>iGuzzini cables: loop resistance from the sheet's ΔV table divided by the current of its maximum-length row.</li>
+    <li>Customer cable: ΔV = ρ · 2 · L · I / S.</li>
+    <li>Connectors: every luminaire has a male input and a female output. Neighbours plug together with no cable. A customer-cable bridge needs a male-connector cable at the output and a female-connector cable at the next input.</li>
+    <li>Limits: input at most 50 V; end of run at least 45 V (Mono, TW) or 46 V (RGBW); bus and connector current at most 2.9 A (Mono, TW) or 2.1 A (RGBW); at most 100 m of cable from the power supply. Drivers pass their input voltage to the output; their internal drop and connector drop are not included.</li>
+    <li>Driver channels are checked at 100 %: TW loads two channels with its channel power, RGBW loads four, Mono loads one channel (or a quarter on each in 1CH mode).</li>
+  </ul></details></section>`;
+}
+function insNode(n){
+  const r=res.node[n.id]||{};
+  if(n.type==='psu'){
+    const p=PSU[n.art],ps=res.psu[n.id];
+    let h=`<section>${subj('Power supply 48 V',n.art+' · '+p.P+' W')}
+    ${kv([['Current',fmt(r.I)+' A'],['Load',`${fmt(ps.load,0)} W of ${p.P} W`,ps.load>p.P?'err':(p.table&&ps.load>p.table?'warn':'')],['Cable losses',fmt(ps.loss,1)+' W'],['Luminaires',r.cnt+' pcs']])}`;
+    if(p.fixed) h+=`<p class="note">${n.art} is a dimmable DALI-2 / switch-dim supply with a fixed 48 V ± 2 V output, listed for the monochromatic version only. It feeds luminaires directly, without a driver.</p>`;
+    else if(r.cnt){
+      const rf=fmt(ps.rec,ps.rec*10%1?2:1);
+      h+= ps.feasible
+        ? `<div class="rec">Allowed set point <b>${fmt(ps.lo)}–${fmt(ps.hi)} V</b>. The middle, <b>${rf} V</b>, leaves equal margin to both limits.<div class="row"><button class="btn small primary" type="button" data-act="applyV">Set ${rf} V</button></div></div>`
+        : `<div class="rec bad">No set point works. The ends of the runs need at least ${fmt(ps.lo)} V at the power supply, but the inputs already reach 50 V at ${fmt(ps.hi)} V. Shorten cables, increase the cross-section or feed the run from the other end.</div>`;
+    }
+    h+=`</section><section><h2>Power supply</h2>
+    ${ctl('f-art','Model',`<select id="f-art" data-f="art">${Object.entries(PSU).map(([k,v])=>`<option value="${k}" ${k===n.art?'selected':''}>${k} · ${v.P} W · ${v.fixed?'48 V ± 2 V fixed':fmt(v.min,1)+'–'+fmt(v.max,1)+' V'}</option>`).join('')}</select>`)}
+    ${ctl('f-V','Set point',`<input id="f-V" inputmode="decimal" data-f="V" value="${n.V}" ${p.fixed?'disabled':''}>`,'V')}
+    <p class="note">The set point never changes on its own. It moves only when you type it or press Set.</p></section>`;
+    return h;
+  }
+  if(n.type==='drv'){
+    const d=DRV[n.art],ch=r.ch||[0,0,0,0],used=r.used||[];
+    return `<section>${subj('Driver',d.name)}
+    ${kv([['Input voltage',r.powered?fmt(r.Vin)+' V':'—',r.Vin>d.vin?'err':''],['Input limit',d.vin+' V'],['Current',fmt(r.I)+' A']])}
+    <div class="tw" style="margin-top:10px"><table><tr><th>Channel at 100 %</th><th>Load</th><th>Limit</th></tr>${ch.map((pw,i)=>`<tr><td>CH${i+1}</td><td class="${pw>d.ch[i]?'err':(d.min&&used[i]&&pw<d.min?'warn':'')}">${fmt(pw,1)} W</td><td>${d.ch[i]} W</td></tr>`).join('')}<tr><td>Total in scenario</td><td class="${r.tot>d.tot?'err':''}">${fmt(r.tot||0,1)} W</td><td>${d.tot} W</td></tr></table></div>
+    ${d.min?'<p class="note">MWP3 needs more than 20 W on every channel in use.</p>':''}</section>
+    <section><h2>Driver</h2>
+    ${ctl('f-art','Model',`<select id="f-art" data-f="art">${Object.entries(DRV).map(([k,v])=>`<option value="${k}" ${k===n.art?'selected':''}>${v.name}</option>`).join('')}</select>`)}
+    ${ctl('f-mode','Wiring',`<select id="f-mode" data-f="mode">${Object.entries(MODES).map(([k,v])=>`<option value="${k}" ${k===n.mode?'selected':''}>${v.name}</option>`).join('')}</select>`)}</section>`;
+  }
+  if(n.type==='jct'){
+    return `<section>${subj('Junction','Branch point')}
+    ${kv([['Voltage',r.powered?fmt(r.Vin)+' V':'—'],['Current',fmt(r.I)+' A'],['Cable from power supply',r.powered?fmtL(r.dist):'—']])}</section>
+    <section><h2>Junction</h2>${ctl('f-art','Type',`<select id="f-art" data-f="art">${Object.entries(JCT).map(([k,v])=>`<option value="${k}" ${k===n.art?'selected':''}>${v}</option>`).join('')}</select>`)}
+    <p class="note">X188, X189 and BZK7 are for Mono and TW; X825 and X826 for RGBW. Connector drop is not included.</p></section>`;
+  }
+  const f=FAM[n.fam],Iu=f.Ipm*n.L/1000*sf(n);
+  let h=`<section>${subj('Luminaire #'+lumNo[n.id]+' · '+f.name,'Linealuce 27 · '+(n.n>1?n.n+' × ':'')+n.L+' mm')}`;
+  if(r.powered){
+    h+=kv([
+      ['Input voltage',fmt(r.Vin)+' V',r.Vin>V_START_MAX?'err':''],
+      ['End voltage, approximate',fmt(r.Vend)+' V',r.Vend<f.vEnd?'err':(r.Vend-f.vEnd<.3?'warn':'ok')],
+      [`Margin to ${f.vEnd} V`,fmt(r.Vend-f.vEnd)+' V'],
+      ['Current per luminaire',fmt(Iu,3)+' A'],
+      ['Bus current at input',`${fmt(r.I)} A of ${f.Imax} A`,r.I>f.Imax?'err':''],
+      ['Power',fmt(unitPfull(n)*sf(n)*n.n,2)+' W'],
+      ['Cable from power supply',`${fmtL(r.dist)} of ${fmtL(LC_MAX,0)}`,r.dist>LC_MAX?'warn':'']
+    ]);
+    if(n.n>1) h+=`<div class="tw" style="margin-top:10px"><table><tr><th>Luminaire</th><th>Start</th><th>End</th></tr>${r.units.map((u,i)=>`<tr><td>${i+1}</td><td>${fmt(u[0])} V</td><td>${fmt(u[1])} V</td></tr>`).join('')}</table></div>`;
+  } else h+=`<p class="note">Not connected. Drag a wire from an output ● of a box, junction or previous luminaire to this luminaire's input ○.</p>`;
+  h+=`<p class="note">${f.name} limits: input at most 50 V, end at least ${f.vEnd} V, at most ${f.Imax} A per feed (about ${fmtL(f.run)}). Sheet ${f.sheet}.</p>
+  <div class="row"><button class="btn small" type="button" data-act="chain">Add next ${n.L} mm to the run</button></div></section>
+  <section><h2>Luminaire</h2>
+  ${ctl('f-fam','Version',`<select id="f-fam" data-f="fam">${Object.entries(FAM).map(([k,v])=>`<option value="${k}" ${k===n.fam?'selected':''}>${v.name}</option>`).join('')}</select>`)}
+  ${ctl('f-L','Length',`<select id="f-L" data-f="L">${f.lens.map(k=>`<option value="${k}" ${k===n.L?'selected':''}>${k} mm · ${fmt(unitPfull({fam:n.fam,L:k}),2)} W</option>`).join('')}</select>`)}
+  ${ctl('f-n','Luminaires in a row',`<input id="f-n" inputmode="numeric" data-f="n" value="${n.n}">`,'pcs')}
+  <p class="note">Each luminaire has a male input and a female output, so luminaires in a row plug together with no cable.</p></section>`;
+  return h;
+}
+function branchFam(id){
+  const n=findNode(id);if(!n)return palFam;if(n.type==='lum')return n.fam;
+  if(n.type==='drv')return MODES[n.mode].fam;
+  const e=S.edges.find(x=>x.from===id);return e?branchFam(e.to):palFam;
+}
+function cableOptions(s){
+  return `<option value="user" ${s.kind==='user'?'selected':''}>Customer cable</option>`+
+    IG_GROUPS.map(([g,t])=>`<optgroup label="${t}">${Object.entries(IG).filter(([,v])=>v.g===g).map(([k,v])=>`<option value="${k}" ${s.art===k?'selected':''}>${k} · ${END_NAME[v.end]} · ${fmtL(v.L,v.L<1?2:1)}</option>`).join('')}</optgroup>`).join('');
+}
+function connChain(e,a,b){
+  const parts=[a.type==='lum'?'<b>female output</b>':'<b>terminals</b>'];
+  e.segs.forEach(s=>parts.push(s.kind==='user'?`customer cable ${fmtL(s.L)} ${secName(s.S)}`:`${s.art} (${END_NAME[IG[s.art].end]})`));
+  parts.push(b.type==='lum'?'<b>male input</b>':'<b>terminals</b>');
+  return parts.join(' → ');
+}
+function insEdge(e){
+  const re=res.edge[e.id]||{},rho=S.settings.rho;
+  const a=findNode(e.from),b=findNode(e.to),powered=res.node[e.from]&&res.node[e.from].powered;
+  const fam=b.type==='lum'?b.fam:(a.type==='lum'?a.fam:branchFam(e.to)),F=FAM[fam];
+  const lumlum=a.type==='lum'&&b.type==='lum';
+  let h=`<section>${subj('Connection'+(a.type==='drv'?' · output '+e.port:''),label(a)+' → '+label(b))}`;
+  if(powered){
+    const slack=re.minSlack,igs=e.segs.filter(s=>s.kind==='ig'),lim=igs.length?Math.min(...igs.map(s=>igImax(s.art))):Infinity;
+    h+=kv([['Current',fmt(re.I)+' A',re.I>lim?'err':''],['Length',fmtL(re.len,2)],['Loop resistance',fmt(re.R,3)+' Ω'],['Voltage drop',fmt(re.dV,3)+' V'],['Voltage, start → end',`${fmt(re.Vfrom)} V → ${fmt(re.Vto)} V`],['Losses',fmt(re.loss,2)+' W'],['Margin at end of branch',isFinite(slack)?fmt(slack)+' V':'—',slack<0?'err':(slack<.3?'warn':'ok')]]);
+  } else h+=`<p class="note">This branch is not connected to a power supply, so no voltages are calculated.</p>`;
+  h+=`<div class="chain">${connChain(e,a,b)}</div></section><section><h2>Cable sections, from the source</h2>`;
+  if(lumlum) h+=`<div class="row" style="margin-top:0"><button class="btn small" type="button" data-act="bridge" data-k="direct">Plug together</button><button class="btn small" type="button" data-act="bridge" data-k="user">Customer cable bridge</button><button class="btn small" type="button" data-act="bridge" data-k="ext">Extension ${F.EXT}</button></div>`;
+  if(!e.segs.length) h+=`<p class="note">${lumlum?'The luminaires plug together directly: female output into male input, no cable.':'No cable. Add one below.'}</p>`;
+  e.segs.forEach((s,i)=>{
+    if(s.kind==='user') h+=`<div class="seg"><select id="f-k${i}" data-f="kind" data-seg="${i}" aria-label="Section ${i+1} type">${cableOptions(s)}</select><input id="f-l${i}" inputmode="decimal" data-f="L" data-seg="${i}" value="${+fromL(s.L).toFixed(2)}" aria-label="Section ${i+1} length, ${lenU()}"><select id="f-s${i}" data-f="S" data-seg="${i}" aria-label="Section ${i+1} cross-section">${secOptions(s.S)}</select><button class="x" type="button" data-act="segdel" data-seg="${i}" aria-label="Remove section ${i+1}">×</button></div>`;
+    else h+=`<div class="seg ig"><select id="f-k${i}" data-f="kind" data-seg="${i}" aria-label="Section ${i+1} type">${cableOptions(s)}</select><button class="x" type="button" data-act="segdel" data-seg="${i}" aria-label="Remove section ${i+1}">×</button></div>`;
+  });
+  if(e.segs.some(s=>s.kind==='user')) h+=`<p class="note">Customer cable: length in ${lenU()}, cross-section per conductor.</p>`;
+  h+=`<div class="row"><button class="btn small" type="button" data-act="segadd" data-k="user">Add customer cable</button>${a.type==='lum'?`<button class="btn small" type="button" data-act="segadd" data-k="${F.M}" data-pos="start">Add ${F.M} at start</button>`:''}<button class="btn small" type="button" data-act="segadd" data-k="${F.F}">Add ${F.F} at end</button></div>`;
+  h+='</section>';
+  if(!powered) return h;
+  const slack=re.minSlack,psu=findNode(res.node[e.from].root),ps=res.psu[psu.id];
+  const up=PSU[psu.art].fixed?0:Math.max(0,ps.up||0);
+  e.segs.forEach((s,i)=>{
+    if(s.kind!=='user'||!(re.I>0)||!isFinite(slack))return;
+    const dVs=2*rho*s.L*re.I/s.S, budget=dVs+slack, budget2=budget+up, list=secList();
+    h+=`<section><h2>Section ${i+1}: allowed lengths and cross-sections</h2>`;
+    if(budget<=0){
+      h+=`<div class="rec bad">At ${fmt(psu.V,1)} V even a cable with no resistance here would not keep the end of the branch within its limit: the other sections already lose ${fmt(-budget)} V too much.${up>.05?` Raise the power supply, up to ${fmt(ps.hi)} V.`:''}</div>`;
+    } else {
+      const Lmax=budget*s.S/(2*rho*re.I), Smin=2*rho*s.L*re.I/budget, Sstd=list.find(x=>x>=Smin-1e-9);
+      h+=`<div class="rec">At ${fmtL(s.L)} it needs at least <b>${fmt(Smin,2)} mm²</b>, so the next standard size is <b>${Sstd?secName(Sstd):'larger than '+secName(list[list.length-1])}</b>. At ${secName(s.S)} it can run up to <b>${fmtL(Lmax)}</b>.</div>`;
+    }
+    const showUp=up>.05,rows=imp()?list.slice(0,6):list.slice(1,7);
+    h+=`<div class="tw" style="margin-top:10px"><table><tr><th>Cross-section</th><th>Max at ${fmt(psu.V,1)} V</th>${showUp?`<th>Max at ${fmt(ps.hi,1)} V</th>`:''}</tr>`;
+    for(const X of rows){
+      const l1=budget>0?budget*X/(2*rho*re.I):NaN,l2=budget2>0?budget2*X/(2*rho*re.I):NaN;
+      h+=`<tr class="${Math.abs(X-s.S)<1e-6?'cur':''}"><td>${secName(X)}</td><td>${isNaN(l1)?'—':fmtL(l1)}</td>${showUp?`<td>${isNaN(l2)?'—':fmtL(l2)}</td>`:''}</tr>`;
+    }
+    h+=`</table></div><p class="note">Other sections stay as they are. Max is the length at which the farthest luminaire of the branch sits exactly at its end-voltage limit.${showUp?' The right column uses the highest power supply set point that still keeps every input at or below 50 V.':''}</p></section>`;
+  });
+  return h;
+}
+function renderPanel(){
+  const s=res.sum;
+  let h=`<section><h2>Scheme</h2><div class="metrics">
+    <div class="metric"><div class="l">Luminaires</div><div class="v">${s.cnt}<small>pcs · ${fmtL(s.len,2)}</small></div></div>
+    <div class="metric"><div class="l">Power supply load</div><div class="v">${fmt(s.P,0)} W<small>${fmt(s.I)} A</small></div></div>
+    <div class="metric"><div class="l">Smallest end margin</div><div class="v ${s.minSlack<0?'err':(s.minSlack<.3?'warn':'')}">${isFinite(s.minSlack)?fmt(s.minSlack)+' V':'—'}</div></div>
+    <div class="metric"><div class="l">Highest input</div><div class="v ${s.maxStart>V_START_MAX?'err':''}">${isFinite(s.maxStart)?fmt(s.maxStart)+' V':'—'}<small>max 50 V</small></div></div>
+  </div></section>`;
+  if(sel&&sel.kind==='node'&&findNode(sel.id)) h+=insNode(findNode(sel.id));
+  else if(sel&&sel.kind==='edge'&&findEdge(sel.id)) h+=insEdge(findEdge(sel.id));
+  else {sel=null;}
+  const list=res.issues.length?res.issues:[{lvl:'ok',ref:null,text:'All checks pass: voltages, currents, loads and connectors are within limits.'}];
+  h+=`<section><h2>Checks</h2><ul class="issues">${list.map(i=>`<li class="${i.lvl}"><button type="button" ${i.ref?`data-ref="${i.ref}"`:''}><span class="dot"></span><span>${esc(i.text)}</span></button></li>`).join('')}</ul></section>`;
+  if(!sel) h+=insScheme();
+  const scroll=panel.scrollTop;panel.innerHTML=h;panel.scrollTop=scroll;
+}
+function render(){res=compute();drawCanvas();renderPanel();}
+
+/* ---------- Actions ---------- */
+function defSegs(a,b){
+  if(a.type==='lum'&&b.type==='lum') return [];
+  if(b.type==='lum'&&a.type!=='lum') return [seg(defLen(false),defSec(false)),ig(FAM[b.fam].F)];
+  if(a.type==='lum') return [ig(FAM[a.fam].M),seg(defLen(false),defSec(false))];
+  return [seg(defLen(true),defSec(true))];
+}
+function isAncestor(anc,id){let cur=id,g=0;while(cur&&g++<10000){if(cur===anc)return true;const e=S.edges.find(x=>x.to===cur);cur=e&&e.from;}return false;}
+function tryConnect(from,port,to){
+  const a=findNode(from),b=findNode(to);
+  if(!a||!b||from===to||b.type==='psu') return false;
+  if(isAncestor(to,from)) return false;
+  S.edges=S.edges.filter(e=>e.to!==to);
+  if(a.type==='lum') S.edges=S.edges.filter(e=>e.from!==from);
+  const ed={id:uid(),from,port,to,segs:defSegs(a,b)};
+  S.edges.push(ed);sel={kind:'edge',id:ed.id};render();return true;
+}
+function defaults(type){
+  if(type==='psu')return{art:'X404',V:48};
+  if(type==='drv')return{art:'9639',mode:FAM_MODE[palFam]};
+  if(type==='jct')return{art:palFam==='rgbw'?'X825':'X189'};
+  return{fam:palFam,L:FAM[palFam].lens[0],n:1};
+}
+function viewCenter(){const r=svg.getBoundingClientRect();return{x:(r.width/2-view.x)/view.k,y:(r.height/2-view.y)/view.k};}
+function autoLink(s,n){
+  if(n.type==='psu') return null;
+  const used=S.edges.filter(e=>e.from===s.id);
+  const g=geom(s);
+  if(s.type==='lum'){
+    if(used.length) return null;
+    const gn=geom(n);
+    n.x=s.x+g.w+(n.type==='lum'?6:110);n.y=n.type==='lum'?s.y:s.y+g.h/2-gn.h/2;
+    return {id:uid(),from:s.id,port:'out',to:n.id,segs:defSegs(s,n)};
+  }
+  let port='out';
+  if(s.type==='drv'){port=g.names.find(p=>!used.some(e=>e.port===p))||g.names[0];}
+  const k=used.filter(e=>e.port===port).length,pp=g.ports[port];
+  n.x=s.x+g.w+150;n.y=pp[1]-geom(n).h/2+k*80;
+  return {id:uid(),from:s.id,port,to:n.id,segs:defSegs(s,n)};
+}
+function ensureVisible(n){
+  const r=svg.getBoundingClientRect(),g=geom(n);
+  const x1=n.x*view.k+view.x,x2=(n.x+g.w)*view.k+view.x,y1=n.y*view.k+view.y,y2=(n.y+g.h)*view.k+view.y;
+  if(x2>r.width-20)view.x-=x2-r.width+60;if(x1<20)view.x+=20-x1+40;
+  if(y2>r.height-50)view.y-=y2-r.height+80;if(y1<70)view.y+=70-y1+20;
+}
+function addNode(type,props={},at){
+  const n=Object.assign({id:uid(),type,x:0,y:0},defaults(type),props);
+  const s=!at&&sel&&sel.kind==='node'?findNode(sel.id):null;
+  const ed=s?autoLink(s,n):null;
+  if(!ed){const p=at||viewCenter();const g=geom(n);n.x=Math.round(p.x-g.w/2+(at?0:(Math.random()*60-30)));n.y=Math.round(p.y-g.h/2+(at?0:(Math.random()*60-30)));}
+  S.nodes.push(n);if(ed)S.edges.push(ed);
+  sel={kind:'node',id:n.id};ensureVisible(n);render();
+}
+function delSel(){
+  if(!sel)return;
+  if(sel.kind==='node'){S.nodes=S.nodes.filter(n=>n.id!==sel.id);S.edges=S.edges.filter(e=>e.from!==sel.id&&e.to!==sel.id);}
+  else S.edges=S.edges.filter(e=>e.id!==sel.id);
+  sel=null;render();
+}
+function bounds(){
+  let x1=Infinity,y1=Infinity,x2=-Infinity,y2=-Infinity;
+  for(const n of S.nodes){const g=geom(n);x1=Math.min(x1,n.x-12);y1=Math.min(y1,n.y-22);x2=Math.max(x2,n.x+g.w+14);y2=Math.max(y2,n.y+g.h+32);}
+  return {x1,y1,x2,y2};
+}
+function fit(){
+  const r=svg.getBoundingClientRect();if(!S.nodes.length||!r.width){view={x:40,y:80,k:1};applyView();return;}
+  const b=bounds(),top=r.width<700?120:64;
+  const k=Math.max(.25,Math.min(1.6,(r.width-48)/(b.x2-b.x1),(r.height-top-56)/(b.y2-b.y1)));
+  view={k,x:r.width/2-(b.x1+b.x2)/2*k,y:top+(r.height-top-56)/2-(b.y1+b.y2)/2*k};applyView();
+}
+function zoomAt(f,cx,cy){
+  const r=svg.getBoundingClientRect();if(cx==null){cx=r.width/2;cy=r.height/2;}
+  const wx=(cx-view.x)/view.k,wy=(cy-view.y)/view.k;
+  view.k=Math.max(.2,Math.min(3,view.k*f));view.x=cx-wx*view.k;view.y=cy-wy*view.k;applyView();
+}
+function loadScheme(s){S=s;sel=null;pending=null;renderToolbar();render();fit();}
+
+/* ---------- Pointer on the stage ---------- */
+function toWorld(e){const r=svg.getBoundingClientRect();return{x:(e.clientX-r.left-view.x)/view.k,y:(e.clientY-r.top-view.y)/view.k};}
+function hasIn(n){return n&&n.type!=='psu';}
+svg.addEventListener('pointerdown',e=>{
+  if(e.button>0)return;
+  const pt=toWorld(e);
+  const portEl=e.target.closest('[data-port]'),nodeEl=e.target.closest('[data-node]'),edgeEl=e.target.closest('[data-edge]');
+  try{svg.setPointerCapture(e.pointerId);}catch(_){}
+  if(pending&&(portEl||nodeEl)){
+    const id=portEl?portEl.dataset.pn:nodeEl.dataset.node;
+    const target=findNode(id);
+    if((portEl&&portEl.dataset.port==='in')||(!portEl&&hasIn(target)&&id!==pending.from)){const p=pending;pending=null;if(!tryConnect(p.from,p.port,id))render();drag=null;return;}
+  }
+  if(portEl&&portEl.dataset.port!=='in'){
+    drag={type:'connect',from:portEl.dataset.pn,port:portEl.dataset.port,sx:e.clientX,sy:e.clientY,moved:false,cur:pt};pending=null;return;
+  }
+  if(nodeEl){
+    const n=findNode(nodeEl.dataset.node);pending=null;
+    const changed=!(sel&&sel.kind==='node'&&sel.id===n.id);sel={kind:'node',id:n.id};
+    drag={type:'node',id:n.id,ox:pt.x-n.x,oy:pt.y-n.y,sx:e.clientX,sy:e.clientY,moved:false};
+    if(changed){drawCanvas();renderPanel();}
+    return;
+  }
+  if(edgeEl){pending=null;sel={kind:'edge',id:edgeEl.dataset.edge};drag=null;drawCanvas();renderPanel();return;}
+  drag={type:'pan',sx:e.clientX,sy:e.clientY,vx:view.x,vy:view.y,moved:false};svg.classList.add('panning');
+});
+function readout(e){
+  const el=document.elementFromPoint(e.clientX,e.clientY),out=$('#readout');
+  const ne=el&&el.closest&&el.closest('[data-node]'),ee=el&&el.closest&&el.closest('[data-edge]');
+  let t='';
+  if(ne){const n=findNode(ne.dataset.node),r=res.node[n.id];
+    if(n.type==='lum')t=r.powered?`${label(n)} mm · input ${fmt(r.Vin)} V · end ${fmt(r.Vend)} V · ${fmt(r.I)} A in bus`:`${label(n)} mm · not powered`;
+    else if(n.type==='psu'){const ps=res.psu[n.id];t=`${label(n)} · ${fmt(n.V,1)} V · ${fmt(ps.load,0)} W of ${PSU[n.art].P} W · ${fmt(r.I)} A`;}
+    else t=`${label(n)} · ${r.powered?fmt(r.Vin)+' V · '+fmt(r.I)+' A':'not powered'}`;}
+  else if(ee){const ed=findEdge(ee.dataset.edge),re=res.edge[ed.id];
+    t=`Cable to ${label(findNode(ed.to))} · ${fmtL(re.len,2)} · ${fmt(re.I)} A · drop ${fmt(re.dV??0,3)} V`;}
+  if(t)out.textContent=t;
+}
+svg.addEventListener('pointermove',e=>{
+  if(!drag){readout(e);return;}
+  const dx=e.clientX-drag.sx,dy=e.clientY-drag.sy;
+  if(!drag.moved&&Math.hypot(dx,dy)<4)return;drag.moved=true;
+  if(drag.type==='pan'){view.x=drag.vx+dx;view.y=drag.vy+dy;applyView();}
+  else if(drag.type==='node'){const pt=toWorld(e),n=findNode(drag.id);n.x=Math.round(pt.x-drag.ox);n.y=Math.round(pt.y-drag.oy);drawCanvas();}
+  else if(drag.type==='connect'){drag.cur=toWorld(e);drawCanvas();}
+});
+function endDrag(e){
+  if(!drag)return;const d=drag;drag=null;svg.classList.remove('panning');
+  if(d.type==='connect'){
+    if(d.moved){
+      const el=document.elementFromPoint(e.clientX,e.clientY);
+      const pe=el&&el.closest('[data-port="in"]'),ne=el&&el.closest('[data-node]');
+      const id=pe?pe.dataset.pn:(ne?ne.dataset.node:null);
+      if(id&&hasIn(findNode(id))&&tryConnect(d.from,d.port,id))return;
+      drawCanvas();
+    } else {pending={from:d.from,port:d.port};drawCanvas();}
+  } else if(d.type==='pan'){
+    if(!d.moved&&e.type==='pointerup'){pending=null;if(sel){sel=null;drawCanvas();renderPanel();}else drawCanvas();}
+  }
+}
+svg.addEventListener('pointerup',endDrag);
+svg.addEventListener('pointercancel',endDrag);
+svg.addEventListener('dblclick',e=>{if(!e.target.closest('[data-node],[data-edge]'))fit();});
+svg.addEventListener('wheel',e=>{e.preventDefault();const r=svg.getBoundingClientRect();zoomAt(Math.exp(-e.deltaY*.0015),e.clientX-r.left,e.clientY-r.top);},{passive:false});
+$('#zin').onclick=()=>zoomAt(1.25);$('#zout').onclick=()=>zoomAt(.8);$('#zfit').onclick=fit;
+document.addEventListener('keydown',e=>{
+  if(e.target.matches('input,textarea,select')||document.querySelector('dialog[open]'))return;
+  if(e.key==='Escape'&&pending){pending=null;drawCanvas();}
+  if((e.key==='Delete'||e.key==='Backspace')&&sel){e.preventDefault();delSel();}
+});
+
+/* ---------- Toolbar: click or drag onto the stage ---------- */
+let pd=null,ghost=null;
+$('#toolbar').addEventListener('pointerdown',e=>{
+  const b=e.target.closest('[data-add]');if(!b||e.button>0)return;
+  pd={b,sx:e.clientX,sy:e.clientY,moved:false};try{b.setPointerCapture(e.pointerId);}catch(_){}
+});
+$('#toolbar').addEventListener('pointermove',e=>{
+  if(!pd)return;
+  if(!pd.moved&&Math.hypot(e.clientX-pd.sx,e.clientY-pd.sy)<6)return;
+  pd.moved=true;
+  if(!ghost){ghost=document.createElement('div');ghost.className='ghost';ghost.textContent=(pd.b.dataset.fam?FAM[pd.b.dataset.fam].short+' ':'')+pd.b.textContent.trim();document.body.appendChild(ghost);}
+  ghost.style.left=e.clientX+'px';ghost.style.top=e.clientY+'px';
+});
+function palEnd(e){
+  if(!pd)return;const p=pd;pd=null;if(ghost){ghost.remove();ghost=null;}
+  const type=p.b.dataset.add,props=p.b.dataset.l?{L:+p.b.dataset.l,fam:p.b.dataset.fam}:{};
+  if(!p.moved){addNode(type,props);return;}
+  if(e.type!=='pointerup')return;
+  const r=svg.getBoundingClientRect();
+  if(e.clientX>=r.left&&e.clientX<=r.right&&e.clientY>=r.top&&e.clientY<=r.bottom)addNode(type,props,toWorld(e));
+}
+$('#toolbar').addEventListener('pointerup',palEnd);
+$('#toolbar').addEventListener('pointercancel',palEnd);
+
+/* ---------- Sidebar events ---------- */
+panel.addEventListener('toggle',e=>{const k=e.target.dataset&&e.target.dataset.k;if(k){e.target.open?openSet.add(k):openSet.delete(k);}},true);
+panel.addEventListener('change',e=>{
+  const t=e.target,f=t.dataset.f;if(!f)return;
+  if(t.dataset.scope==='set'){
+    if(f==='scen')S.settings.scen=t.value;
+    if(f==='rho'){const v=num(t.value);if(v>0&&v<1)S.settings.rho=v;}
+    render();return;
+  }
+  if(sel&&sel.kind==='node'){
+    const n=findNode(sel.id);if(!n)return;
+    if(f==='art'){n.art=t.value;if(n.type==='psu'&&PSU[n.art].fixed)n.V=48;}
+    if(f==='mode'){n.mode=t.value;const names=Object.keys(MODES[n.mode].ports);
+      S.edges.forEach(e=>{if(e.from===n.id&&!names.includes(e.port))e.port=names[0];});}
+    if(f==='V'){const v=num(t.value);if(v>0&&v<100)n.V=Math.round(v*100)/100;}
+    if(f==='fam'){n.fam=t.value;const ls=FAM[n.fam].lens;if(!ls.includes(n.L))n.L=ls.reduce((a,b)=>Math.abs(b-n.L)<Math.abs(a-n.L)?b:a);}
+    if(f==='L')n.L=+t.value;
+    if(f==='n'){const v=Math.round(num(t.value));if(v>=1&&v<=40)n.n=v;}
+    render();return;
+  }
+  if(sel&&sel.kind==='edge'){
+    const ed=findEdge(sel.id),i=+t.dataset.seg,s=ed&&ed.segs[i];if(!s)return;
+    if(f==='kind')ed.segs[i]=t.value==='user'?seg(defLen(false),defSec(false)):ig(t.value);
+    if(f==='L'){const v=toL(num(t.value));if(v>0&&v<=1000)s.L=Math.round(v*1000)/1000;}
+    if(f==='S')s.S=+t.value;
+    render();
+  }
+});
+panel.addEventListener('click',e=>{
+  const b=e.target.closest('[data-act],[data-ref],[data-preset]');if(!b)return;
+  if(b.dataset.preset){loadScheme(PRESETS[b.dataset.preset].build());return;}
+  if(b.dataset.ref){
+    const id=b.dataset.ref;
+    if(findNode(id)){sel={kind:'node',id};const n=findNode(id),r=svg.getBoundingClientRect(),g=geom(n);view.x=r.width/2-(n.x+g.w/2)*view.k;view.y=r.height/2-(n.y+g.h/2)*view.k;}
+    else if(findEdge(id))sel={kind:'edge',id};
+    render();return;
+  }
+  const a=b.dataset.act;
+  if(a==='del')delSel();
+  if(a==='chain'){const n=findNode(sel.id);addNode('lum',{L:n.L,fam:n.fam});}
+  if(a==='applyV'){const n=findNode(sel.id);n.V=res.psu[n.id].rec;render();}
+  if(a==='bridge'){const ed=findEdge(sel.id),F=FAM[findNode(ed.from).fam];
+    ed.segs=b.dataset.k==='direct'?[]:b.dataset.k==='ext'?[ig(F.EXT)]:[ig(F.M),seg(defLen(false),defSec(false)),ig(F.F)];render();}
+  if(a==='segadd'){const ed=findEdge(sel.id),k=b.dataset.k;
+    if(k==='user'){ // insert between leading male-connector cables and trailing female-connector cables
+      let i=ed.segs.length;while(i>0&&ed.segs[i-1].kind==='ig'&&IG[ed.segs[i-1].art].end==='F')i--;
+      ed.segs.splice(i,0,seg(defLen(false),defSec(false)));}
+    else if(b.dataset.pos==='start')ed.segs.unshift(ig(k));else ed.segs.push(ig(k));
+    render();}
+  if(a==='segdel'){const ed=findEdge(sel.id);ed.segs.splice(+b.dataset.seg,1);render();}
+});
+
+/* ---------- Toast and dialogs ---------- */
+let toastT=0;
+function toast(msg){const t=$('#toast');t.textContent=msg;t.hidden=false;clearTimeout(toastT);toastT=setTimeout(()=>t.hidden=true,3200);}
+document.querySelectorAll('dialog').forEach(d=>{
+  d.addEventListener('click',e=>{if(e.target===d||e.target.closest('[data-close]'))d.close();});
+});
+$('#b-about').onclick=()=>{$('#mail').textContent=MAIL[0]+'@'+MAIL[1];$('#dlg-about').showModal();};
+
+/* Save / open */
+let dlUrl=null;
+$('#b-save').onclick=()=>{
+  const txt=JSON.stringify({app:'linealuce27-circuit',version:3,nodes:S.nodes,edges:S.edges,settings:S.settings},null,1);
+  $('#save-text').value=txt;
+  if(dlUrl)URL.revokeObjectURL(dlUrl);dlUrl=URL.createObjectURL(new Blob([txt],{type:'application/json'}));
+  const a=$('#save-dl');a.href=dlUrl;a.hidden=framed;
+  $('#save-msg').textContent=framed?'Copy the text and save it as a .json file. Downloads are blocked inside this embedded view. Open it again with Open scheme or by dropping the file on the page.':'Download the scheme as a file, or copy the text. Open it again with Open scheme or by dropping the file on the page.';
+  $('#dlg-save').showModal();
+};
+$('#save-copy').onclick=()=>{
+  const ta=$('#save-text');
+  try{navigator.clipboard.writeText(ta.value).then(()=>toast('Scheme copied to the clipboard.'),()=>{ta.focus();ta.select();toast('Text selected. Copy it with Ctrl+C or ⌘C.');});}
+  catch(_){ta.focus();ta.select();toast('Text selected. Copy it with Ctrl+C or ⌘C.');}
+};
+$('#b-open').onclick=()=>$('#file').click();
+$('#file').addEventListener('change',e=>{const f=e.target.files[0];if(f)readFile(f);e.target.value='';});
+function readFile(file){
+  const fr=new FileReader();
+  fr.onload=()=>{
+    try{const s=migrate(JSON.parse(fr.result));loadScheme(s);toast(`Opened ${file.name}.`);}
+    catch(_){toast(`Could not read ${file.name}. It is not a Linealuce scheme file: expected JSON with nodes and edges.`);}
+  };
+  fr.onerror=()=>toast(`Could not read ${file.name}.`);
+  fr.readAsText(file);
+}
+let dragDepth=0;
+const hasFiles=e=>e.dataTransfer&&Array.from(e.dataTransfer.types||[]).includes('Files');
+window.addEventListener('dragenter',e=>{if(!hasFiles(e))return;e.preventDefault();dragDepth++;$('#drop').hidden=false;});
+window.addEventListener('dragover',e=>{if(hasFiles(e))e.preventDefault();});
+window.addEventListener('dragleave',e=>{if(!hasFiles(e))return;dragDepth=Math.max(0,dragDepth-1);if(!dragDepth)$('#drop').hidden=true;});
+window.addEventListener('drop',e=>{if(!hasFiles(e))return;e.preventDefault();dragDepth=0;$('#drop').hidden=true;const f=e.dataTransfer.files[0];if(f)readFile(f);});
+
+/* ---------- Screenshot ---------- */
+function svgImage(){
+  const b=bounds(),bw=b.x2-b.x1,bh=b.y2-b.y1;
+  const cs=getComputedStyle(document.documentElement);
+  const toks=['--bg','--panel','--line','--text','--muted','--amber','--void','--err','--ok','--warn','--gridm','--gridM','--bar','--wire','--lens','--warm','--lcool','--lr','--lg','--lb','--lw'].map(t=>`${t}:${cs.getPropertyValue(t).trim()}`).join(';');
+  const css=Array.from(document.styleSheets).filter(sh=>{try{return sh.ownerNode&&sh.ownerNode.tagName==='STYLE'&&sh.cssRules.length>20}catch(_){return false}}).flatMap(sh=>Array.from(sh.cssRules)).map(r=>r.cssText).filter(t=>/^\.(g-|wire|edge|ehit|elab|node|body|lens|div|inbar|tag|vlab|strip|st-|box|bt|bv|bs|jc|jx|port|phit|plab)/.test(t)).join('\n');
+  const defs=$('#defs').innerHTML;
+  const str=`<svg xmlns="http://www.w3.org/2000/svg" viewBox="${b.x1} ${b.y1} ${bw} ${bh}" width="${bw}" height="${bh}"><style>svg{${toks};--font:"Helvetica Neue",Arial,sans-serif}${css}</style><defs>${defs}</defs><rect x="${b.x1}" y="${b.y1}" width="${bw}" height="${bh}" fill="${cs.getPropertyValue('--void').trim()}"/>${buildContent(null)}</svg>`;
+  return new Promise((ok,no)=>{const im=new Image();im.onload=()=>ok({im,bw,bh});im.onerror=no;im.src='data:image/svg+xml;charset=utf-8,'+encodeURIComponent(str);});
+}
+function fitText(ctx,text,maxW,size,weight){
+  // shrink to 0.84, then wrap to two lines, then ellipsis
+  for(let s=size;s>=size*.84-1e-6;s-=.5){ctx.font=`${weight} ${s}px Archivo, "Helvetica Neue", Arial, sans-serif`;if(ctx.measureText(text).width<=maxW)return{size:s,lines:[text]};}
+  const s=size*.84;ctx.font=`${weight} ${s}px Archivo, "Helvetica Neue", Arial, sans-serif`;
+  const words=text.split(' '),lines=[''];
+  for(const w of words){const t=(lines[lines.length-1]+' '+w).trim();if(ctx.measureText(t).width<=maxW||!lines[lines.length-1])lines[lines.length-1]=t;else lines.push(w);}
+  if(lines.length>2){let l=lines.slice(1).join(' ');while(l&&ctx.measureText(l.replace(/[\s.,;:·–-]+$/,'')+'…').width>maxW)l=l.slice(0,-1);lines.length=1;lines.push(l.replace(/[\s.,;:·–-]+$/,'')+'…');}
+  return{size:s,lines};
+}
+async function buildShot(){
+  await document.fonts.ready;
+  const cs=getComputedStyle(document.documentElement),c=k=>cs.getPropertyValue(k).trim();
+  const W=1400,pad=28,sc=2;
+  const {im,bw,bh}=S.nodes.length?await svgImage():{im:null,bw:1,bh:1};
+  const k=Math.min((W-2*pad-24)/bw,560/bh,1.5),iw=bw*k,ih=bh*k,boxH=ih+24;
+  const psus=S.nodes.filter(n=>n.type==='psu');
+  const tables=psus.map(n=>{const p=PSU[n.art],ps=res.psu[n.id],r=res.node[n.id];
+    return{head:`${label(n)} · ${p.P} W`,sub:p.fixed?'Fixed 48 V ± 2 V':`Range ${fmt(p.min,1)}–${fmt(p.max,1)} V`,rows:[
+      ['Set point',fmt(n.V,1)+' V'],['Load',`${fmt(ps.load,0)} W of ${p.P} W`],['Current',fmt(r.I)+' A'],['Luminaires',r.cnt+' pcs'],
+      ['Allowed set point',p.fixed?'fixed':(ps.feasible&&r.cnt?`${fmt(ps.lo)}–${fmt(ps.hi)} V`:'none')],['Smallest end margin',isFinite(ps.minSlack)?fmt(ps.minSlack)+' V':'—'],
+      ['Highest input',isFinite(ps.maxStart)?fmt(ps.maxStart)+' V':'—'],['Cable losses',fmt(ps.loss,1)+' W']]};});
+  const cols=Math.max(1,Math.min(3,tables.length)),gap=24,colW=(W-2*pad-gap*(cols-1))/cols;
+  const meas=document.createElement('canvas').getContext('2d');
+  tables.forEach(t=>t.fit=fitText(meas,t.head,colW,16,600));
+  const rowsOf=[];for(let i=0;i<tables.length;i+=cols)rowsOf.push(tables.slice(i,i+cols));
+  const headH=rowsOf.map(row=>Math.max(...row.map(t=>t.fit.lines.length*t.fit.size*1.25))+20);
+  const tH=rowsOf.reduce((a,row,i)=>a+headH[i]+8*22+42,0);
+  const iss=res.issues.slice(0,10),issH=34+Math.max(1,iss.length)*20+(res.issues.length>10?20:0);
+  const H=Math.round(pad+56+boxH+24+tH+issH+48);
+  const cv=document.createElement('canvas');cv.width=W*sc;cv.height=H*sc;const x=cv.getContext('2d');x.scale(sc,sc);
+  const F=(w,s)=>`${w} ${s}px Archivo, "Helvetica Neue", Arial, sans-serif`;
+  x.fillStyle=c('--bg');x.fillRect(0,0,W,H);
+  let y=pad;
+  x.fillStyle=c('--text');x.font=F(600,20);x.textBaseline='alphabetic';x.fillText('Linealuce 27 circuit',pad,y+18);
+  x.fillStyle=c('--muted');x.font=F(400,12.5);x.fillText(`iGuzzini Linealuce 27 Full Remote 48 V DC · instruction sheets ${[...new Set(S.nodes.filter(n=>n.type==='lum').map(n=>FAM[n.fam].sheet))].join(', ')||'—'}`,pad,y+38);
+  x.textAlign='right';x.fillText(`Schematic · ${S.settings.scen==='all'?'all channels at 100 %':'one channel at 100 %'} · ${res.sum.cnt} luminaires, ${fmt(res.sum.P,0)} W`,W-pad,y+18);x.textAlign='left';
+  y+=56;
+  x.fillStyle=c('--void');x.fillRect(pad,y,W-2*pad,boxH);x.strokeStyle=c('--line');x.lineWidth=1;x.strokeRect(pad+.5,y+.5,W-2*pad-1,boxH-1);
+  if(im)x.drawImage(im,pad+(W-2*pad-iw)/2,y+12,iw,ih);
+  y+=boxH+24;
+  rowsOf.forEach((row,ri)=>{
+    row.forEach((t,ci)=>{const x0=pad+ci*(colW+gap);let yy=y;
+      x.fillStyle=c('--text');x.font=F(600,t.fit.size);t.fit.lines.forEach((l,li)=>x.fillText(l,x0,yy+t.fit.size+li*t.fit.size*1.25));
+      x.fillStyle=c('--muted');x.font=F(400,12);x.fillText(t.sub,x0,y+headH[ri]-4);
+      yy=y+headH[ri]+26;
+      t.rows.forEach(([l,v])=>{x.strokeStyle=c('--line');x.beginPath();x.moveTo(x0,yy-15.5);x.lineTo(x0+colW,yy-15.5);x.stroke();
+        x.fillStyle=c('--muted');x.font=F(400,13);x.fillText(l,x0,yy);x.fillStyle=c('--text');x.textAlign='right';x.fillText(v,x0+colW,yy);x.textAlign='left';yy+=22;});
+    });
+    y+=headH[ri]+8*22+42;
+  });
+  x.fillStyle=c('--text');x.font=F(600,15);x.fillText('Checks',pad,y+14);y+=34;
+  (iss.length?iss:[{lvl:'ok',text:'All checks pass: voltages, currents, loads and connectors are within limits.'}]).forEach(i=>{
+    x.fillStyle=c(i.lvl==='err'?'--err':i.lvl==='warn'?'--warn':'--ok');x.beginPath();x.arc(pad+4,y-4,4,0,7);x.fill();
+    x.fillStyle=c('--text');x.font=F(400,13);const f=fitText(x,i.text,W-2*pad-20,13,400);x.font=F(400,f.size);x.fillText(f.lines[0]+(f.lines.length>1?' '+f.lines[1]:''),pad+16,y);y+=20;});
+  if(res.issues.length>10){x.fillStyle=c('--muted');x.fillText(`and ${res.issues.length-10} more`,pad+16,y);y+=20;}
+  y=H-pad+4;x.fillStyle=c('--muted');x.font=F(400,11.5);
+  x.fillText('Not included: driver and connector internal drop. Voltages inside luminaires are approximate. Units: V, A, W, '+(imp()?'ft, AWG':'m, mm²')+'.',pad,y);
+  x.textAlign='right';x.fillText(new Date().toISOString().slice(0,10),W-pad,y);x.textAlign='left';
+  return cv;
+}
+$('#b-shot').onclick=()=>{
+  const blobP=buildShot().then(cv=>new Promise(r=>cv.toBlob(r,'image/png')));
+  let ok=false;
+  try{
+    if(navigator.clipboard&&window.ClipboardItem){
+      navigator.clipboard.write([new ClipboardItem({'image/png':blobP})]).then(()=>{ok=true;toast('Screenshot copied to the clipboard.');},()=>showShot(blobP));
+      return;
+    }
+  }catch(_){}
+  showShot(blobP);
+};
+let shotUrl=null;
+function showShot(blobP){
+  blobP.then(b=>{if(shotUrl)URL.revokeObjectURL(shotUrl);shotUrl=URL.createObjectURL(b);
+    $('#shot-img').src=shotUrl;const a=$('#shot-dl');a.href=shotUrl;a.hidden=framed;$('#dlg-shot').showModal();})
+  .catch(()=>toast('Could not build the screenshot.'));
+}
+
+/* ---------- Start ---------- */
+S=PRESETS.mixed.build();
+renderToolbar();
+render();
+requestAnimationFrame(()=>{fit();});
+</script>
+
+</body></html>
