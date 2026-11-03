@@ -153,7 +153,7 @@ a{color:var(--amber)}
 .linking .port.i{stroke:var(--amber);stroke-width:3}
 .plab{font:600 10px var(--font);fill:var(--muted)}
 .temp{stroke:var(--amber);stroke-width:2;stroke-dasharray:5 4;fill:none;pointer-events:none}
-.ghost{position:fixed;pointer-events:none;z-index:50;background:var(--amber);color:#222325;font-size:12px;font-weight:500;padding:4px 8px;border-radius:6px;transform:translate(-50%,-130%)}
+.dragghost{position:fixed;pointer-events:none;z-index:50;background:var(--amber);color:#222325;font-size:12px;font-weight:500;padding:4px 8px;border-radius:6px;transform:translate(-50%,-130%)}
 .st-w{stop-color:var(--warm)}.st-c{stop-color:var(--lcool)}
 .st-r{stop-color:var(--lr)}.st-g{stop-color:var(--lg)}.st-b{stop-color:var(--lb)}.st-wh{stop-color:var(--lw)}
 
@@ -254,7 +254,7 @@ a{color:var(--amber)}
 <script>
 /* ---------- Data from the iGuzzini instruction sheets ---------- */
 const FAM={
-  mono:{name:'Monochromatic',short:'Mono',sheet:'IS18234/15',lens:[329,625,920,1216,1511],Ipm:.28,Wpm:13,r:.26,vEnd:45,Imax:2.9,run:10.5,nch:1,single:1,F:'X773',M:'X173',EXT:'X720'},
+  mono:{name:'Monochromatic',short:'Mono',noOut:[329],sheet:'IS18234/15',lens:[329,625,920,1216,1511],Ipm:.28,Wpm:13,r:.26,vEnd:45,Imax:2.9,run:10.5,nch:1,single:1,F:'X773',M:'X173',EXT:'X720'},
   tw:{name:'Tunable White',short:'TW',sheet:'IS21677/01',lens:[625,920,1216,1511],Ipm:.28,r:.19,vEnd:45,Imax:2.9,run:10.5,nch:2,single:.5,F:'X774',M:'X293',EXT:'X720',ch:{625:3.84,920:5.75,1216:7.67,1511:9.6}},
   rgbw:{name:'RGBW',short:'RGBW',sheet:'IS20350/07',lens:[625,1216],Ipm:.29,r:.28,vEnd:46,Imax:2.1,run:7.2,nch:4,single:.25,F:'X714',M:'X719',EXT:'X751',ch:{625:2,1216:4.1}}
 };
@@ -316,6 +316,7 @@ const fmt=(v,d=2)=>(v==null||!isFinite(v))?'—':v.toFixed(d).replace('-','−')
 const num=v=>parseFloat(String(v).replace(',','.'));
 const uid=()=>Math.random().toString(36).slice(2,10);
 const esc=s=>String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const hasOut=n=>!(n.type==='lum'&&(FAM[n.fam].noOut||[]).includes(n.L));
 const unitPfull=n=>{const f=FAM[n.fam];return f.ch?f.nch*f.ch[n.L]:f.Wpm*n.L/1000;};
 const sf=n=>S.settings.scen==='single'?FAM[n.fam].single:1;
 // units: compute in SI, convert only for display
@@ -379,7 +380,7 @@ function migrate(src){
   for(const o of src.nodes){
     if(!o||typeof o!=='object')continue;
     const n={id:uid(),type:o.type,x:Math.round(fin(o.x,0)),y:Math.round(fin(o.y,0))};
-    if(o.type==='lum'){n.fam=FAM[o.fam]?o.fam:'tw';n.L=FAM[n.fam].lens.includes(+o.L)?+o.L:FAM[n.fam].lens[0];n.n=Math.min(40,Math.max(1,Math.round(fin(o.n,1))));}
+    if(o.type==='lum'){n.fam=FAM[o.fam]?o.fam:'tw';n.L=FAM[n.fam].lens.includes(+o.L)?+o.L:FAM[n.fam].lens[0];n.n=Math.min(40,Math.max(1,Math.round(fin(o.n,1))));if(!hasOut(n))n.n=1;}
     else if(o.type==='psu'){n.art=PSU[o.art]?o.art:'X404';n.V=Math.min(60,Math.max(30,fin(o.V,48)));}
     else if(o.type==='drv'){n.art=DRV[o.art]?o.art:'9639';n.mode=MODES[o.mode]?o.mode:'tw';}
     else if(o.type==='jct'){n.art=JCT[o.art]?o.art:'BOX';}
@@ -388,7 +389,7 @@ function migrate(src){
   }
   for(const o of src.edges){
     if(!o)continue;const from=idmap.get(String(o.from)),to=idmap.get(String(o.to));if(!from||!to)continue;
-    const fn=nodes.find(n=>n.id===from);const ports=fn.type==='drv'?Object.keys(MODES[fn.mode].ports):['out'];
+    const fn=nodes.find(n=>n.id===from);if(!hasOut(fn))continue;const ports=fn.type==='drv'?Object.keys(MODES[fn.mode].ports):['out'];
     const segs=(Array.isArray(o.segs)?o.segs:[]).map(g=>g&&g.kind==='ig'&&IG[g.art]?{kind:'ig',art:g.art}:g&&g.kind==='user'?{kind:'user',L:Math.min(1000,Math.max(.01,fin(g.L,5))),S:Math.min(50,Math.max(.1,fin(g.S,1.5)))}:null).filter(Boolean);
     edges.push({id:uid(),from,to,port:ports.includes(o.port)?o.port:ports[0],segs});
   }
@@ -401,7 +402,7 @@ function migrate(src){
 /* ---------- Geometry ---------- */
 const LPX=90;
 function geom(n){
-  if(n.type==='lum'){const w=Math.max(32,n.L/1000*n.n*LPX),h=24;return{w,h,ports:{in:[n.x,n.y+h/2],out:[n.x+w,n.y+h/2]}}}
+  if(n.type==='lum'){const w=Math.max(32,n.L/1000*n.n*LPX),h=24,ports={in:[n.x,n.y+h/2]};if(hasOut(n))ports.out=[n.x+w,n.y+h/2];return{w,h,ports}}
   if(n.type==='psu'){const w=136,h=72;return{w,h,ports:{out:[n.x+w,n.y+h/2]}}}
   if(n.type==='drv'){
     const names=Object.keys(MODES[n.mode].ports),k=names.length,w=136,h=k>2?112:88,s=22;
@@ -618,7 +619,7 @@ function buildContent(selected){
       h+=`<rect class="strip" x="${n.x}" y="${n.y+g.h-3}" width="${g.w}" height="3"/>`;
       h+=`<text class="inbar" x="${cx}" y="${n.y+15}" text-anchor="middle">${n.n>1?n.n+'×':''}${n.L}</text>`;
       h+=`<text class="vlab" x="${cx}" y="${n.y+g.h+14}" text-anchor="middle">${r.powered?fmt(r.Vend)+' V':'no power'}</text>`;
-      h+=portSVG(n.id,'in',g.ports.in,'i')+portSVG(n.id,'out',g.ports.out,'o');
+      h+=portSVG(n.id,'in',g.ports.in,'i')+(g.ports.out?portSVG(n.id,'out',g.ports.out,'o'):'');
     } else if(n.type==='psu'){
       const ps=res.psu[n.id]||{};
       h+=`<rect class="box" x="${n.x}" y="${n.y}" width="${g.w}" height="${g.h}" rx="6"/><rect class="strip" x="${n.x}" y="${n.y+6}" width="3" height="${g.h-12}"/>`;
@@ -685,7 +686,7 @@ function insScheme(){
     <li>Voltages inside a luminaire are approximate. The internal bus resistance is not published, so it is fitted to each sheet's V start min table: Mono about 0.26 Ω/m, TW about 0.19 Ω/m, RGBW about 0.28 Ω/m, load spread evenly along the bus.</li>
     <li>iGuzzini cables: loop resistance from the sheet's ΔV table divided by the current of its maximum-length row.</li>
     <li>Customer cable: ΔV = ρ · 2 · L · I / S.</li>
-    <li>Connectors: every luminaire has a male input and a female output. Neighbours plug together with no cable. A customer-cable bridge needs a male-connector cable at the output and a female-connector cable at the next input.</li>
+    <li>Connectors: every luminaire has a male input and a female output, except Mono 329 mm, which has no output and can only stand alone or end a run. Neighbours plug together with no cable. A customer-cable bridge needs a male-connector cable at the output and a female-connector cable at the next input.</li>
     <li>Limits: input at most 50 V; end of run at least 45 V (Mono, TW) or 46 V (RGBW); bus and connector current at most 2.9 A (Mono, TW) or 2.1 A (RGBW); at most 100 m of cable from the power supply. Drivers pass their input voltage to the output; their internal drop and connector drop are not included.</li>
     <li>Driver channels are checked at 100 %: TW loads two channels with its channel power, RGBW loads four, Mono loads one channel (or a quarter on each in 1CH mode).</li>
   </ul></details></section>`;
@@ -740,12 +741,11 @@ function insNode(n){
     if(n.n>1) h+=`<div class="tw" style="margin-top:10px"><table><tr><th>Luminaire</th><th>Start</th><th>End</th></tr>${r.units.map((u,i)=>`<tr><td>${i+1}</td><td>${fmt(u[0])} V</td><td>${fmt(u[1])} V</td></tr>`).join('')}</table></div>`;
   } else h+=`<p class="note">Not connected. Drag a wire from an output ● of a box, junction or previous luminaire to this luminaire's input ○.</p>`;
   h+=`<p class="note">${f.name} limits: input at most 50 V, end at least ${f.vEnd} V, at most ${f.Imax} A per feed (about ${fmtL(f.run)}). Sheet ${f.sheet}.</p>
-  <div class="row"><button class="btn small" type="button" data-act="chain">Add next ${n.L} mm to the run</button></div></section>
+  ${hasOut(n)?`<div class="row"><button class="btn small" type="button" data-act="chain">Add next ${n.L} mm to the run</button></div>`:'<p class="note">The 329 mm version has no output connector. Use it on its own or as the last luminaire of a run.</p>'}</section>
   <section><h2>Luminaire</h2>
   ${ctl('f-fam','Version',`<select id="f-fam" data-f="fam">${Object.entries(FAM).map(([k,v])=>`<option value="${k}" ${k===n.fam?'selected':''}>${v.name}</option>`).join('')}</select>`)}
-  ${ctl('f-L','Length',`<select id="f-L" data-f="L">${f.lens.map(k=>`<option value="${k}" ${k===n.L?'selected':''}>${k} mm · ${fmt(unitPfull({fam:n.fam,L:k}),2)} W</option>`).join('')}</select>`)}
-  ${ctl('f-n','Luminaires in a row',`<input id="f-n" inputmode="numeric" data-f="n" value="${n.n}">`,'pcs')}
-  <p class="note">Each luminaire has a male input and a female output, so luminaires in a row plug together with no cable.</p></section>`;
+  ${ctl('f-L','Length',`<select id="f-L" data-f="L">${f.lens.map(k=>`<option value="${k}" ${k===n.L?'selected':''}>${k} mm · ${fmt(unitPfull({fam:n.fam,L:k}),2)} W${(f.noOut||[]).includes(k)?' · end of run only':''}</option>`).join('')}</select>`)}
+  ${hasOut(n)?ctl('f-n','Luminaires in a row',`<input id="f-n" inputmode="numeric" data-f="n" value="${n.n}">`,'pcs')+'<p class="note">Each luminaire has a male input and a female output, so luminaires in a row plug together with no cable.</p>':''}</section>`;
   return h;
 }
 function branchFam(id){
@@ -834,7 +834,7 @@ function defSegs(a,b){
 function isAncestor(anc,id){let cur=id,g=0;while(cur&&g++<10000){if(cur===anc)return true;const e=S.edges.find(x=>x.to===cur);cur=e&&e.from;}return false;}
 function tryConnect(from,port,to){
   const a=findNode(from),b=findNode(to);
-  if(!a||!b||from===to||b.type==='psu') return false;
+  if(!a||!b||from===to||b.type==='psu'||!hasOut(a)) return false;
   if(isAncestor(to,from)) return false;
   S.edges=S.edges.filter(e=>e.to!==to);
   if(a.type==='lum') S.edges=S.edges.filter(e=>e.from!==from);
@@ -853,7 +853,7 @@ function autoLink(s,n){
   const used=S.edges.filter(e=>e.from===s.id);
   const g=geom(s);
   if(s.type==='lum'){
-    if(used.length) return null;
+    if(used.length||!hasOut(s)) return null;
     const gn=geom(n);
     n.x=s.x+g.w+(n.type==='lum'?6:110);n.y=n.type==='lum'?s.y:s.y+g.h/2-gn.h/2;
     return {id:uid(),from:s.id,port:'out',to:n.id,segs:defSegs(s,n)};
@@ -983,7 +983,7 @@ $('#toolbar').addEventListener('pointermove',e=>{
   if(!pd)return;
   if(!pd.moved&&Math.hypot(e.clientX-pd.sx,e.clientY-pd.sy)<6)return;
   pd.moved=true;
-  if(!ghost){ghost=document.createElement('div');ghost.className='ghost';ghost.textContent=(pd.b.dataset.fam?FAM[pd.b.dataset.fam].short+' ':'')+pd.b.textContent.trim();document.body.appendChild(ghost);}
+  if(!ghost){ghost=document.createElement('div');ghost.className='dragghost';ghost.textContent=(pd.b.dataset.fam?FAM[pd.b.dataset.fam].short+' ':'')+pd.b.textContent.trim();document.body.appendChild(ghost);}
   ghost.style.left=e.clientX+'px';ghost.style.top=e.clientY+'px';
 });
 function palEnd(e){
@@ -1015,6 +1015,7 @@ panel.addEventListener('change',e=>{
     if(f==='fam'){n.fam=t.value;const ls=FAM[n.fam].lens;if(!ls.includes(n.L))n.L=ls.reduce((a,b)=>Math.abs(b-n.L)<Math.abs(a-n.L)?b:a);}
     if(f==='L')n.L=+t.value;
     if(f==='n'){const v=Math.round(num(t.value));if(v>=1&&v<=40)n.n=v;}
+    if(n.type==='lum'&&!hasOut(n)){n.n=1;S.edges=S.edges.filter(e=>e.from!==n.id);}
     render();return;
   }
   if(sel&&sel.kind==='edge'){
